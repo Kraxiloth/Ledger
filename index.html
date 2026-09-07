@@ -1,0 +1,608 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ledger - Prototype v6</title>
+<style>
+:root{--bg:#111315;--panel:#191c20;--panel2:#20242a;--text:#eee8dc;--muted:#aaa49a;--line:#34383e;--accent:#c6a15b;--warn:#d2a34a;--ok:#77ad78}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
+header{position:sticky;top:0;z-index:10;background:#121416f2;border-bottom:1px solid var(--line);backdrop-filter:blur(10px)}
+.wrap,main{max-width:1450px;margin:auto;padding:16px 22px}.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+h1{font:600 21px Georgia,serif;margin:0;margin-right:auto}.status{font-size:13px;color:var(--muted)}.status b{color:var(--text)}
+button,select,input{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:9px 11px}
+button{cursor:pointer}button:hover{border-color:#777}.primary{border-color:#8e7444;color:#f3dfb7}
+.toolbar{display:grid;grid-template-columns:minmax(220px,1fr) repeat(3,170px) auto;gap:10px;margin-top:14px}
+main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border-radius:9px;padding:12px 14px;margin-bottom:16px}
+.stats{display:flex;gap:22px;flex-wrap:wrap;color:var(--muted);margin:10px 0 18px}.stats b{color:var(--text)}.catalogueStatus{font-size:12px;color:var(--muted);margin:8px 0 14px}
+.quickfilters{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:0 0 16px}
+.filterrow{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:7px 0}
+.filtertitle{width:64px;color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em}
+.chip{padding:6px 10px;border-radius:999px;font-size:13px;min-width:0}
+.chip.include{border-color:#6d916d;background:#223126;color:#dcebdc}
+.chip.exclude{border-color:#9a6262;background:#342222;color:#f0d6d6;text-decoration:line-through}
+.clearfilters{margin-left:auto;font-size:12px;padding:6px 10px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:11px;overflow:hidden}
+.art{aspect-ratio:5/7;display:flex;align-items:center;justify-content:center;position:relative;padding:8px 8px 0}
+.art img{width:100%;height:100%;object-fit:contain;display:block;border-radius:0;clip-path:none}.art .placeholder{color:#777;padding:18px;text-align:center;font-size:12px}
+.info{padding:12px}.name{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta{font-size:12px;color:var(--muted);margin:3px 0 10px}.label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px}
+.variant{width:100%;margin-bottom:9px}.qtyrow{display:flex;align-items:center;gap:7px}.qtyrow button{width:34px;height:34px;padding:0;font-size:18px}.qtyrow input{width:55px;text-align:center;padding:7px}
+.total{margin-left:auto;font-size:12px;color:var(--muted)}.empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:70px 20px}
+@media(max-width:850px){.toolbar{grid-template-columns:1fr 1fr}.toolbar input{grid-column:1/-1}}
+
+.modalback{position:fixed;inset:0;background:#000a;display:none;align-items:center;justify-content:center;padding:20px;z-index:1000}
+.modalback.open{display:flex}.modal{width:min(760px,100%);max-height:85vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:20px;box-shadow:0 20px 80px #0008}
+.modal h2{margin-top:0}.importgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}.importstat{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px}.importstat b{display:block;font-size:20px}
+.importissues{font-size:13px;white-space:pre-wrap;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px;max-height:240px;overflow:auto}.modalactions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+@media(max-width:650px){.importgrid{grid-template-columns:repeat(2,1fr)}}
+
+.inspectback{position:fixed;inset:0;background:#000d;display:none;align-items:center;justify-content:center;padding:24px;z-index:1100;overflow:auto}
+.inspectback.open{display:flex}.inspectmodal{position:relative;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0}
+.inspectimg{display:block;width:min(75vw,1050px);height:auto;max-height:92vh;object-fit:contain;filter:drop-shadow(0 18px 35px #000a)}
+.inspectimg.site{transform:rotate(90deg);width:min(82vh,1120px);height:auto;max-height:min(82vw,1120px)}
+.inspectclose{position:fixed;top:18px;right:22px;width:44px;height:44px;border-radius:50%;font-size:24px;z-index:1101}
+.art img{cursor:zoom-in}.inspectimg{cursor:zoom-out}
+@media(max-width:700px){.inspectback{padding:12px}.inspectimg{width:96vw;max-height:92vh}.inspectimg.site{width:86vh;max-width:86vh;max-height:86vw}}
+</style>
+</head>
+<body>
+<header><div class="wrap">
+ <div class="top">
+  <h1>Ledger <small style="color:#777;font:12px system-ui">prototype v9.4</small></h1>
+  <div class="status">Local copy: <b id="saved">not created</b></div>
+  <div class="status">Backup: <b id="backup">none</b></div>
+  <button id="curiosaBtn">Import collection CSV</button>
+  <input id="curiosaFile" type="file" accept=".csv,text/csv" hidden>
+  <button class="primary" id="csvExportBtn">Export collection CSV</button>
+  <button id="importBtn" title="Restore tracker-specific JSON backup">Restore tracker backup</button>
+  <input id="fileInput" type="file" accept=".json,application/json" hidden>
+  <button id="exportBtn" title="Export tracker-specific JSON backup">Export tracker backup</button>
+ </div>
+ <div class="toolbar">
+  <input id="search" placeholder="Search cards...">
+  <select id="setFilter"><option value="">All sets</option></select>
+  <select id="rarityFilter"><option value="">All rarities</option></select>
+  <select id="finishFilter"><option value="">All finishes</option></select>
+  <select id="ownershipFilter"><option value="all">All cards</option><option value="owned">Owned</option><option value="unowned">Unowned</option></select>
+  <select id="sortBy"><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option><option value="set">Set</option><option value="rarity">Rarity</option></select>
+ </div>
+</div></header>
+<main>
+ <div class="notice"><span id="noticeText">Loading catalogue from data.sorcery.no...</span></div>
+ <div class="catalogueStatus" id="catalogueStatus">Catalogue: loading...</div>
+ <div class="quickfilters">
+  <div class="filterrow" data-tier="type"><span class="filtertitle">Type</span>
+   <button class="chip" data-value="Avatar">Avatar</button><button class="chip" data-value="Minion">Minion</button><button class="chip" data-value="Magic">Magic</button><button class="chip" data-value="Aura">Aura</button><button class="chip" data-value="Artifact">Artifact</button><button class="chip" data-value="Site">Site</button>
+   <button class="clearfilters" id="clearQuick">Clear quick filters</button>
+  </div>
+  <div class="filterrow" data-tier="element"><span class="filtertitle">Element</span>
+   <button class="chip" data-value="Earth">Earth</button><button class="chip" data-value="Fire">Fire</button><button class="chip" data-value="Water">Water</button><button class="chip" data-value="Air">Air</button><button class="chip" data-value="None">None</button><button class="chip" data-value="Multi">Multi</button>
+  </div>
+  <div class="filterrow" data-tier="rarity"><span class="filtertitle">Rarity</span>
+   <button class="chip" data-value="Unique">Unique</button><button class="chip" data-value="Elite">Elite</button><button class="chip" data-value="Exceptional">Exceptional</button><button class="chip" data-value="Ordinary">Ordinary</button>
+  </div>
+ </div>
+ <div class="stats">
+  <span><b id="visibleCount">0</b> cards shown</span>
+  <span><b id="uniqueOwned">0</b> variants owned</span>
+  <span><b id="totalOwned">0</b> physical cards owned</span>
+  <span><b id="changes">0</b> changes since baseline</span>
+ </div>
+ <div id="grid" class="grid"></div>
+ <div id="sentinel" style="height:30px"></div>
+</main>
+<div class="modalback" id="curiosaModal">
+ <div class="modal">
+  <h2>Collection CSV import</h2>
+  <div id="curiosaSummary"></div>
+  <div class="importgrid">
+   <div class="importstat"><b id="ciRows">0</b>CSV entries</div>
+   <div class="importstat"><b id="ciCards">0</b>physical cards</div>
+   <div class="importstat"><b id="ciMatched">0</b>matched exactly</div>
+   <div class="importstat"><b id="ciProblems">0</b>need attention</div>
+  </div>
+  <div class="importissues" id="curiosaIssues">No problems found.</div>
+  <div class="modalactions">
+   <button id="curiosaCancel">Cancel</button>
+   <button id="curiosaConfirm">Replace inventory with this import</button>
+  </div>
+ </div>
+</div>
+
+
+<div class="inspectback" id="inspectBack" aria-hidden="true">
+ <button class="inspectclose" id="inspectClose" aria-label="Close card inspector">×</button>
+ <div class="inspectmodal" role="dialog" aria-modal="true" aria-label="Card inspector">
+  <img class="inspectimg" id="inspectImg" alt="">
+ </div>
+</div>
+<script>
+const CATALOGUE_URL='https://data.sorcery.no/cards.json';
+const CATALOGUE_META_URL='https://data.sorcery.no/cards-meta.json';
+const IMAGE_BASE='https://d27a44hjr9gen3.cloudfront.net/cards/';
+const DB_NAME='sorcery-collection-prototype', DB_VERSION=2;
+let db,cards=[],filtered=[],rendered=0,inv=new Map(),catalogueMeta=null;
+let meta={revision:0,baselineRevision:0,lastModified:null,lastExported:null};
+const $=id=>document.getElementById(id);
+
+function openDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB_NAME,DB_VERSION);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('inventory'))d.createObjectStore('inventory',{keyPath:'slug'});if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta');if(!d.objectStoreNames.contains('catalogue'))d.createObjectStore('catalogue',{keyPath:'key'})};r.onsuccess=()=>{db=r.result;resolve()};r.onerror=()=>reject(r.error)})}
+function store(n,m='readonly'){return db.transaction(n,m).objectStore(n)}
+function getAll(n){return new Promise((res,rej)=>{const r=store(n).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function getOne(n,key){return new Promise((res,rej)=>{const r=store(n).get(key);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+function putOne(n,value){return new Promise((res,rej)=>{const r=store(n,'readwrite').put(value);r.onsuccess=()=>res();r.onerror=()=>rej(r.error)})}
+async function ensurePersistentStorage(){
+ if(!navigator.storage?.persist)return false;
+ try{
+  if(await navigator.storage.persisted())return true;
+  return await navigator.storage.persist();
+ }catch{return false}
+}
+function getMeta(){return new Promise(res=>{const r=store('meta').get('state');r.onsuccess=()=>res(r.result?.value)})}
+function saveMeta(){store('meta','readwrite').put({key:'state',value:meta});updateStatus()}
+const fmt=x=>x?new Date(x).toLocaleString():'none';
+function updateStatus(){
+ $('saved').textContent=meta.lastModified?fmt(meta.lastModified):'empty';$('backup').textContent=meta.lastExported?fmt(meta.lastExported):'none';
+ const d=Math.max(0,meta.revision-meta.baselineRevision);$('changes').textContent=d;
+ $('noticeText').textContent=d?`Local collection has ${d} change${d===1?'':'s'} since its last import/export baseline. Export a backup to protect them.`:
+ meta.lastExported?'Backup is up to date with the local collection.':'Collection is stored locally in this browser. Clearing site data can remove it, so export a backup after making changes.';
+}
+function normalize(data){
+ return data.map(c=>{
+  // Current raw official API snapshot.
+  if(c.engine && Array.isArray(c.printings)){
+   const e=c.engine||{};
+   const variants=c.printings.map(p=>({
+    id:p.id||'', slug:p.slug||'', finish:p.meta?.finish||'',
+    set:p.set?.name||'', setCode:p.set?.code||'', product:p.meta?.product||'',
+    typeline:p.meta?.typeline||'', artist:p.meta?.artist?.name||''
+   })).filter(v=>v.slug);
+   const grouped=new Map();
+   for(const v of variants){
+    if(!grouped.has(v.set))grouped.set(v.set,[]);
+    grouped.get(v.set).push(v);
+   }
+   return {
+    id:c.id||'', slug:c.slug||'', name:c.name||'',
+    rarity:e.rarity||'', type:e.type||'', category:e.category||'',
+    elements:Array.isArray(e.elements)?e.elements:[],
+    air:e.air||0, earth:e.earth||0, fire:e.fire||0, water:e.water||0,
+    cost:e.cost, attack:e.attack, defense:e.defense, life:e.life,
+    rules:e.rules||'', subtypes:e.subtypes||[], keywords:e.keywords||[],
+    umbrellas:e.umbrellas||[], variants,
+    sets:[...grouped].map(([name,variants])=>({name,variants}))
+   };
+  }
+
+  // Compatibility with the older reduced snapshot. This prevents a stale
+  // browser/CDN copy from turning the catalogue into zero cards.
+  const sets=(c.sets||[]).map(s=>({
+   name:s.n||'',
+   variants:(s.v||[]).map(v=>({
+    slug:v.slug||'', finish:v.finish||'', set:s.n||''
+   })).filter(v=>v.slug)
+  }));
+  return {
+   id:c.id||'', slug:c.slug||'', name:c.name||'',
+   rarity:c.rarity||'', type:c.type||'', category:'',
+   elements:Array.isArray(c.elements)?c.elements:[],
+   air:0, earth:0, fire:0, water:0, rules:'',
+   subtypes:[], keywords:[], umbrellas:[],
+   sets, variants:sets.flatMap(s=>s.variants)
+  };
+ });
+}
+function imageUrl(slug){return IMAGE_BASE+encodeURIComponent(slug)+'.png'}
+function variantLabel(v){return `${v.set} · ${v.finish}${(inv.get(v.slug)||0)>0?` (${inv.get(v.slug)} owned)`:''}`}
+function qualifyingVariants(c){
+ const sf=$('setFilter').value, ff=$('finishFilter').value;
+ let vs=c.variants.filter(v=>(!sf||v.set===sf)&&(!ff||v.finish===ff));
+ return vs.length?vs:c.variants;
+}
+function preferredVariant(c){
+ const vs=qualifyingVariants(c);
+ return vs.find(v=>(inv.get(v.slug)||0)>0)||vs[0]||c.variants[0];
+}
+function validateRawCatalogue(raw){
+ if(!Array.isArray(raw)||!raw.length)throw new Error('Catalogue is empty or invalid');
+ for(const c of raw){
+  if(!c||!c.id||!c.name||!c.engine||!Array.isArray(c.printings))throw new Error('Catalogue structure is invalid');
+ }
+ return true;
+}
+function populateCatalogueFilters(){
+ const variants=cards.flatMap(c=>c.variants);
+ for(const id of ['setFilter','rarityFilter','finishFilter'])while($(id).options.length>1)$(id).remove(1);
+ const addOpts=(id,vals)=>[...new Set(vals.filter(Boolean))].sort().forEach(v=>$(id).add(new Option(v,v)));
+ addOpts('setFilter',variants.map(v=>v.set));addOpts('rarityFilter',cards.map(c=>c.rarity));addOpts('finishFilter',variants.map(v=>v.finish));
+}
+function showCatalogueStatus(source){
+ if(!catalogueMeta){$('catalogueStatus').textContent=`Catalogue: ${cards.length.toLocaleString()} cards · ${source}`;return}
+ const updated=catalogueMeta.updatedAt?new Date(catalogueMeta.updatedAt).toLocaleString():'unknown';
+ $('catalogueStatus').textContent=`Catalogue: ${Number(catalogueMeta.cardCount||cards.length).toLocaleString()} cards · ${Number(catalogueMeta.printingCount||0).toLocaleString()} printings · updated ${updated} · ${source}`;
+}
+async function fetchManifest(){
+ const r=await fetch(CATALOGUE_META_URL,{cache:'no-store'});
+ if(!r.ok)throw new Error('Catalogue manifest request failed');
+ return r.json();
+}
+async function fetchRawCatalogue(revision){
+ const short=String(revision||'').replace('sha256:','').slice(0,16);
+ const url=CATALOGUE_URL+(CATALOGUE_URL.includes('?')?'&':'?')+'v='+encodeURIComponent(short||Date.now());
+ const r=await fetch(url);
+ if(!r.ok)throw new Error('Catalogue request failed');
+ const raw=await r.json();validateRawCatalogue(raw);return raw;
+}
+async function loadCatalogue(){
+ const cached=await getOne('catalogue','current');
+ let manifest=null;
+ try{manifest=await fetchManifest()}catch(err){console.warn('Manifest unavailable; trying cached catalogue.',err)}
+ if(cached?.raw && (!manifest || cached.revision===manifest.catalogueRevision)){
+  validateRawCatalogue(cached.raw);
+  window.__rawCatalogue=cached.raw;
+  catalogueMeta=manifest||cached.meta||null;
+  cards=normalize(cached.raw).filter(c=>c.name&&c.variants.length);
+  populateCatalogueFilters();showCatalogueStatus(manifest?'local cache, current':'local cache, offline');
+  return;
+ }
+ try{
+  if(!manifest)throw new Error('No manifest available');
+  const raw=await fetchRawCatalogue(manifest.catalogueRevision);
+  window.__rawCatalogue=raw;
+  cards=normalize(raw).filter(c=>c.name&&c.variants.length);
+  if(!cards.length)throw new Error('Catalogue contained no usable cards');
+  catalogueMeta=manifest;
+  await putOne('catalogue',{key:'current',revision:manifest.catalogueRevision,meta:manifest,raw});
+  populateCatalogueFilters();showCatalogueStatus('downloaded current catalogue');
+ }catch(err){
+  if(cached?.raw){
+   validateRawCatalogue(cached.raw);
+   window.__rawCatalogue=cached.raw;
+   catalogueMeta=cached.meta||manifest||null;
+   cards=normalize(cached.raw).filter(c=>c.name&&c.variants.length);
+   populateCatalogueFilters();showCatalogueStatus('local cache, update failed');
+   console.warn(err);return;
+  }
+  throw err;
+ }
+}
+async function reloadInventory(){inv=new Map((await getAll('inventory')).map(x=>[x.slug,x.quantity]))}
+async function setQty(slug,q,cardEl=null){
+ q=Math.max(0,Math.floor(Number(q)||0));
+ if(q)inv.set(slug,q);else inv.delete(slug);
+
+ // Optimistic UI: humans reasonably expect a button click to visibly do something.
+ if(cardEl){
+  const input=cardEl.querySelector('.qtyrow input');
+  if(input)input.value=q;
+  const card=cards.find(c=>c.variants.some(v=>v.slug===slug));
+  if(card){
+   const total=card.variants.reduce((n,v)=>n+(inv.get(v.slug)||0),0);
+   const totalEl=cardEl.querySelector('.total');if(totalEl)totalEl.textContent=`${total} total`;
+   const sel=cardEl.querySelector('.variant');
+   if(sel){
+    for(const o of sel.options){
+     const v=card.variants.find(x=>x.slug===o.value);
+     if(v)o.textContent=variantLabel(v);
+    }
+   }
+  }
+ }
+ refreshStats();
+ meta.revision++;meta.lastModified=new Date().toISOString();saveMeta();updateStatus();
+
+ try{
+  await new Promise((resolve,reject)=>{
+   const tx=db.transaction('inventory','readwrite'),s=tx.objectStore('inventory');
+   q?s.put({slug,quantity:q}):s.delete(slug);
+   tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error);
+  });
+ }catch(err){
+  console.error('Inventory write failed',err);
+  await reloadInventory();refreshStats();applyFilters();
+  alert('The inventory change could not be saved.');
+  return;
+ }
+ // Only re-filter when ownership filtering could make this card enter/leave the view.
+ if($('ownershipFilter').value!=='all')applyFilters();
+}
+function refreshStats(){
+ $('uniqueOwned').textContent=[...inv.values()].filter(q=>q>0).length;
+ $('totalOwned').textContent=[...inv.values()].reduce((a,b)=>a+b,0);
+}
+const quick={type:new Map(),element:new Map(),rarity:new Map()};
+
+const UI_STATE_KEY='sorcery-tracker-ui-v1';
+let restoringUI=false;
+function saveUIState(){
+ if(restoringUI)return;
+ const q={};
+ for(const [tier,map] of Object.entries(quick))q[tier]=[...map.entries()];
+ const state={
+  search:$('search').value,set:$('setFilter').value,rarity:$('rarityFilter').value,
+  finish:$('finishFilter').value,ownership:$('ownershipFilter').value,sort:$('sortBy').value,
+  quick:q,scrollY:window.scrollY
+ };
+ sessionStorage.setItem(UI_STATE_KEY,JSON.stringify(state));
+}
+function restoreUIState(){
+ let s;try{s=JSON.parse(sessionStorage.getItem(UI_STATE_KEY)||'null')}catch{}
+ if(!s)return;
+ restoringUI=true;
+ $('search').value=s.search||'';
+ $('setFilter').value=[...$('setFilter').options].some(o=>o.value===s.set)?s.set:'';
+ $('rarityFilter').value=[...$('rarityFilter').options].some(o=>o.value===s.rarity)?s.rarity:'';
+ $('finishFilter').value=[...$('finishFilter').options].some(o=>o.value===s.finish)?s.finish:'';
+ $('ownershipFilter').value=s.ownership||'all';$('sortBy').value=s.sort||'name-asc';
+ for(const [tier,entries] of Object.entries(s.quick||{})){
+  quick[tier].clear();
+  for(const [v,n] of entries||[])if(n)quick[tier].set(v,n);
+ }
+ document.querySelectorAll('.filterrow button[data-value]').forEach(btn=>{
+  const tier=btn.closest('.filterrow').dataset.tier,n=quick[tier].get(btn.dataset.value)||0;
+  btn.classList.toggle('include',n===1);btn.classList.toggle('exclude',n===2);
+  btn.textContent=(n===1?'✓ ':n===2?'× ':'')+btn.dataset.value;
+ });
+ restoringUI=false;
+ return Number(s.scrollY)||0;
+}
+let scrollSaveTimer;
+window.addEventListener('scroll',()=>{clearTimeout(scrollSaveTimer);scrollSaveTimer=setTimeout(saveUIState,120)},{passive:true});
+
+function cycleChip(btn){
+ const tier=btn.closest('.filterrow').dataset.tier,val=btn.dataset.value,cur=quick[tier].get(val)||0,next=(cur+1)%3;
+ if(next)quick[tier].set(val,next);else quick[tier].delete(val);
+ btn.classList.toggle('include',next===1);btn.classList.toggle('exclude',next===2);
+ btn.textContent=(next===1?'✓ ':next===2?'× ':'')+val;
+ applyFilters();saveUIState();
+}
+function tierPass(value,tier){
+ const inc=[...quick[tier]].filter(([,s])=>s===1).map(([v])=>v),exc=[...quick[tier]].filter(([,s])=>s===2).map(([v])=>v);
+ if(inc.length&&!inc.includes(value))return false;
+ if(exc.includes(value))return false;
+ return true;
+}
+function cardElements(c){
+ return Array.isArray(c.elements)?c.elements:[];
+}
+function elementPass(c){
+ const inc=[...quick.element].filter(([,s])=>s===1).map(([v])=>v);
+ const exc=[...quick.element].filter(([,s])=>s===2).map(([v])=>v);
+ const raw=cardElements(c);
+ const actual=raw.filter(x=>['Air','Earth','Fire','Water'].includes(x));
+ const labels=new Set(actual);
+ if(raw.includes('None')||actual.length===0)labels.add('None');
+ if(actual.length>1)labels.add('Multi');
+ if(inc.length&&![...labels].some(x=>inc.includes(x)))return false;
+ if([...labels].some(x=>exc.includes(x)))return false;
+ return true;
+}
+function applyFilters(){
+ const q=$('search').value.trim().toLowerCase(),sf=$('setFilter').value,rf=$('rarityFilter').value,ff=$('finishFilter').value;
+ const ownership=$('ownershipFilter').value,sort=$('sortBy').value;
+ filtered=cards.filter(c=>{
+  const variants=c.variants.filter(v=>(!sf||v.set===sf)&&(!ff||v.finish===ff));
+  return (!q||c.name.toLowerCase().includes(q)||c.variants.some(v=>v.slug.toLowerCase().includes(q)))
+   &&(!rf||c.rarity===rf)&&variants.length>0
+   &&tierPass(c.type,'type')&&tierPass(c.rarity,'rarity')&&elementPass(c)
+   &&((ownership==='all')||(ownership==='owned'&&c.variants.some(v=>(inv.get(v.slug)||0)>0))||(ownership==='unowned'&&!c.variants.some(v=>(inv.get(v.slug)||0)>0)));
+ });
+ const rarityRank={Unique:0,Elite:1,Exceptional:2,Ordinary:3};
+ filtered.sort((a,b)=>{
+  if(sort==='name-desc')return b.name.localeCompare(a.name);
+  if(sort==='set')return (preferredVariant(a)?.set||'').localeCompare(preferredVariant(b)?.set||'')||a.name.localeCompare(b.name);
+  if(sort==='rarity')return (rarityRank[a.rarity]??99)-(rarityRank[b.rarity]??99)||a.name.localeCompare(b.name);
+  return a.name.localeCompare(b.name);
+ });
+ $('visibleCount').textContent=filtered.length;rendered=0;$('grid').innerHTML='';renderMore();
+}
+
+function openInspector(card,variant){
+ const img=$('inspectImg');img.src=imageUrl(variant.slug);
+ img.alt=`${card.name} — ${variant.set} ${variant.finish}`;
+ img.classList.toggle('site',card.type==='Site');
+ $('inspectBack').classList.add('open');$('inspectBack').setAttribute('aria-hidden','false');
+ document.body.style.overflow='hidden';
+}
+function closeInspector(){
+ $('inspectBack').classList.remove('open');$('inspectBack').setAttribute('aria-hidden','true');
+ $('inspectImg').src='';document.body.style.overflow='';
+}
+$('inspectClose').onclick=closeInspector;
+$('inspectImg').onclick=closeInspector;
+$('inspectBack').onclick=e=>{if(e.target===$('inspectBack'))closeInspector()};
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('inspectBack').classList.contains('open'))closeInspector()});
+
+function renderMore(){
+ const batch=filtered.slice(rendered,rendered+36),frag=document.createDocumentFragment();
+ if(!filtered.length){$('grid').innerHTML='<div class="empty">No cards match these filters.</div>';return}
+ for(const c of batch){
+  let selected=preferredVariant(c), total=c.variants.reduce((n,v)=>n+(inv.get(v.slug)||0),0);
+  const d=document.createElement('article');d.className='card';
+  d.innerHTML=`<div class="art"><img loading="lazy" alt=""><div class="placeholder">Card image unavailable</div></div>
+   <div class="info"><div class="name" title="${esc(c.name)}">${esc(c.name)}</div><div class="meta">${[c.rarity,c.type].filter(Boolean).map(esc).join(' · ')}</div>
+   <div class="label">Variant</div><select class="variant"></select>
+   <div class="label">Owned</div><div class="qtyrow"><button class="minus">−</button><input inputmode="numeric" type="number" min="0" step="1"><button class="plus">+</button><span class="total">${total} total</span></div></div>`;
+  const sel=d.querySelector('.variant'),img=d.querySelector('img'),ph=d.querySelector('.placeholder'),input=d.querySelector('.qtyrow input');
+  // When filters are active, list matching variants first but keep every variant accessible.
+  const matching=qualifyingVariants(c), rest=c.variants.filter(v=>!matching.includes(v)), ordered=[...matching,...rest];
+  for(const v of ordered){const o=new Option(variantLabel(v),v.slug);sel.add(o)}
+  sel.value=selected.slug;
+  function show(v){
+   selected=v;input.value=inv.get(v.slug)||0;
+   img.style.display='block';ph.style.display='none';img.src=imageUrl(v.slug);
+   img.onload=()=>{ph.style.display='none';img.style.display='block'};
+   img.onerror=()=>{img.style.display='none';ph.style.display='block'};
+  }
+  sel.onchange=()=>show(c.variants.find(v=>v.slug===sel.value));
+  img.onclick=()=>openInspector(c,selected);
+  d.querySelector('.minus').onclick=()=>setQty(selected.slug,(inv.get(selected.slug)||0)-1,d);
+  d.querySelector('.plus').onclick=()=>setQty(selected.slug,(inv.get(selected.slug)||0)+1,d);
+  input.onchange=()=>setQty(selected.slug,input.value,d);
+  show(selected);frag.appendChild(d);
+ }
+ $('grid').appendChild(frag);rendered+=batch.length;
+}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+async function exportBackup(){
+ const inventory=await getAll('inventory'),now=new Date().toISOString();
+ const out={format:'sorcery-collection',schemaVersion:1,exportedAt:now,revision:meta.revision,inventory};
+ const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'}),a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);a.download=`sorcery-collection-${now.slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+ meta.baselineRevision=meta.revision;meta.lastExported=now;saveMeta();
+}
+async function importBackup(file){
+ const o=JSON.parse(await file.text());if(o.format!=='sorcery-collection'||!Array.isArray(o.inventory))throw new Error('Not a compatible Sorcery Collection backup');
+ const s=store('inventory','readwrite');s.clear();for(const row of o.inventory)s.put({slug:row.slug,quantity:Math.max(0,Number(row.quantity)||0)});
+ meta.revision=Number(o.revision)||1;meta.baselineRevision=meta.revision;meta.lastModified=new Date().toISOString();meta.lastExported=o.exportedAt||null;saveMeta();
+ await reloadInventory();refreshStats();applyFilters();
+}
+document.querySelectorAll('.chip').forEach(btn=>btn.addEventListener('click',()=>cycleChip(btn)));
+$('clearQuick').onclick=()=>{
+ for(const tier of Object.values(quick))tier.clear();
+ document.querySelectorAll('.chip').forEach(btn=>{btn.classList.remove('include','exclude');btn.textContent=btn.dataset.value});
+ applyFilters();
+};
+['search','setFilter','rarityFilter','finishFilter','ownershipFilter','sortBy'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',()=>{applyFilters();saveUIState()}));
+$('exportBtn').onclick=exportBackup;$('importBtn').onclick=()=>$('fileInput').click();
+$('fileInput').onchange=async e=>{try{if(e.target.files[0])await importBackup(e.target.files[0])}catch(err){alert(err.message)}};
+new IntersectionObserver(entries=>{if(entries[0].isIntersecting&&rendered<filtered.length)renderMore()},{rootMargin:'1000px'}).observe($('sentinel'));
+
+
+const COLLECTION_CSV_HEADERS=['Card Name','Card Slug','Quantity','Set Name','Printed At','Product','Finish','Notes'];
+function csvCell(value){
+ const s=String(value??'');
+ return /[",\r\n]/.test(s)?'"'+s.replaceAll('"','""')+'"':s;
+}
+function buildCollectionCSV(){
+ const raw=window.__rawCatalogue||[],rows=[];
+ for(const card of raw)for(const p of card.printings||[]){
+  const quantity=inv.get(p.slug)||0;if(quantity<=0)continue;
+  rows.push({'Card Name':card.name||'','Card Slug':card.slug||'','Quantity':quantity,
+   'Set Name':p.set?.name||'','Printed At':p.printedAt||'','Product':p.meta?.product||'',
+   'Finish':p.meta?.finish||'','Notes':''});
+ }
+ rows.sort((a,b)=>a['Card Name'].localeCompare(b['Card Name'])||a['Set Name'].localeCompare(b['Set Name'])||a['Finish'].localeCompare(b['Finish']));
+ const lines=[COLLECTION_CSV_HEADERS.join(',')];
+ for(const row of rows)lines.push(COLLECTION_CSV_HEADERS.map(h=>csvCell(row[h])).join(','));
+ return {text:'\uFEFF'+lines.join('\r\n')+'\r\n',rows};
+}
+function exportCollectionCSV(){
+ const {text,rows}=buildCollectionCSV();
+ if(!rows.length){alert('There are no owned cards to export.');return}
+ const blob=new Blob([text],{type:'text/csv;charset=utf-8'}),a=document.createElement('a'),url=URL.createObjectURL(blob);
+ a.href=url;a.download=`sorcery-collection-${new Date().toISOString().slice(0,10)}.csv`;a.click();
+ setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+$('csvExportBtn').onclick=exportCollectionCSV;
+
+let pendingCuriosaImport=null;
+
+function parseCSV(text){
+ const rows=[];let row=[],field='',quoted=false;
+ for(let i=0;i<text.length;i++){
+  const ch=text[i];
+  if(quoted){
+   if(ch==='"'&&text[i+1]==='"'){field+='"';i++}
+   else if(ch==='"')quoted=false;
+   else field+=ch;
+  }else{
+   if(ch==='"')quoted=true;
+   else if(ch===','){row.push(field);field=''}
+   else if(ch==='\n'){row.push(field);rows.push(row);row=[];field=''}
+   else if(ch!=='\r')field+=ch;
+  }
+ }
+ if(field.length||row.length){row.push(field);rows.push(row)}
+ if(!rows.length)return [];
+ const headers=rows.shift().map(h=>h.trim());
+ return rows.filter(r=>r.some(x=>x.trim()!=='')).map(r=>Object.fromEntries(headers.map((h,i)=>[h,(r[i]??'').trim()])));
+}
+
+function resolveCollectionRow(row){
+ const canonical=cards.find(c=>c.slug===row['Card Slug']);
+ if(!canonical)return {status:'unmatched',row,reason:'Canonical card slug not found'};
+ const set=row['Set Name'],finish=row['Finish'],product=row['Product'];
+ const exact=canonical.variants.filter(v=>v.set===set&&v.finish===finish&&v.product===product);
+ if(exact.length===1)return {status:'matched',row,card:canonical,variant:exact[0]};
+ if(exact.length>1)return {status:'ambiguous',row,card:canonical,reason:`${exact.length} printings match set/finish/product`};
+
+ // Printed At is useful as an additional discriminator if Curiosa/product metadata ever overlaps.
+ const printed=row['Printed At'];
+ const rawCard=(window.__rawCatalogue||[]).find(c=>c.slug===row['Card Slug']);
+ if(rawCard&&printed){
+  const p=rawCard.printings.filter(p=>p.set?.name===set&&p.meta?.finish===finish&&p.meta?.product===product&&p.printedAt===printed);
+  if(p.length===1){
+   const variant=canonical.variants.find(v=>v.slug===p[0].slug);
+   if(variant)return {status:'matched',row,card:canonical,variant};
+  }
+ }
+ return {status:'unmatched',row,card:canonical,reason:'No exact set/finish/product printing match'};
+}
+
+function previewCollectionCSV(rows){
+ const required=['Card Name','Card Slug','Quantity','Set Name','Printed At','Product','Finish','Notes'];
+ const missing=required.filter(h=>!rows.length||!(h in rows[0]));
+ if(missing.length)throw new Error('Missing CSV columns: '+missing.join(', '));
+ const results=rows.map(resolveCollectionRow);
+ const physical=rows.reduce((n,r)=>n+(Number.parseInt(r.Quantity,10)||0),0);
+ const matched=results.filter(r=>r.status==='matched');
+ const problems=results.filter(r=>r.status!=='matched');
+ pendingCuriosaImport={rows,results,matched,problems,physical};
+ $('ciRows').textContent=rows.length;
+ $('ciCards').textContent=physical;
+ $('ciMatched').textContent=matched.length;
+ $('ciProblems').textContent=problems.length;
+ $('curiosaSummary').textContent=problems.length
+  ? 'Nothing has been changed yet. Resolve the rows below before importing.'
+  : 'Every row resolved to one exact catalogue printing. Nothing has been changed yet. Importing will replace the current inventory with this CSV snapshot.';
+ $('curiosaIssues').textContent=problems.length
+  ? problems.map(p=>`${p.row['Card Name']} (${p.row['Set Name']} / ${p.row['Finish']} / ${p.row['Product']}): ${p.reason}`).join('\n')
+  : 'No problems found.';
+ $('curiosaConfirm').disabled=problems.length>0;
+ $('curiosaModal').classList.add('open');
+}
+
+async function replaceInventoryFromCuriosa(){
+ if(!pendingCuriosaImport||pendingCuriosaImport.problems.length)return;
+ const tx=db.transaction(['inventory','meta'],'readwrite');
+ const inventory=tx.objectStore('inventory');
+ inventory.clear();
+ for(const m of pendingCuriosaImport.matched){
+  const quantity=Math.max(0,Number.parseInt(m.row.Quantity,10)||0);
+  if(quantity)inventory.put({slug:m.variant.slug,quantity});
+ }
+ const now=new Date().toISOString();
+ const nextRevision=(meta.revision||0)+1;
+ meta={...meta,revision:nextRevision,baselineRevision:nextRevision,lastModified:now,lastImported:now,baselineSource:'curiosa'};
+ tx.objectStore('meta').put(meta,'state');
+ await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error)});
+ await reloadInventory();refreshStats();updateStatus();applyFilters();
+ $('curiosaModal').classList.remove('open');
+ pendingCuriosaImport=null;
+}
+
+$('curiosaBtn').onclick=()=>{$('curiosaFile').value='';$('curiosaFile').click()};
+$('curiosaFile').onchange=async e=>{
+ const f=e.target.files?.[0];if(!f)return;
+ try{previewCollectionCSV(parseCSV(await f.text()))}
+ catch(err){alert('Could not import collection CSV: '+err.message)}
+};
+$('curiosaCancel').onclick=()=>{$('curiosaModal').classList.remove('open');pendingCuriosaImport=null};
+$('curiosaConfirm').onclick=replaceInventoryFromCuriosa;
+
+(async()=>{try{
+ await openDB();meta=(await getMeta())||meta;await reloadInventory();
+ const persistent=await ensurePersistentStorage();
+ await loadCatalogue();refreshStats();updateStatus();
+ const restoreScroll=restoreUIState();applyFilters();
+ requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,restoreScroll||0)));
+ if(persistent)$('saved').title='Browser persistent storage granted';
+ else $('saved').title='Persistent storage was not granted; exported backups remain recommended';
+}catch(e){$('noticeText').textContent='Could not load the catalogue: '+e.message;console.error(e)}})();
+</script>
+
+
+
+</body></html>
