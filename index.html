@@ -45,12 +45,20 @@ main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border
 .inspectclose{position:fixed;top:18px;right:22px;width:44px;height:44px;border-radius:50%;font-size:24px;z-index:1101}
 .art img{cursor:zoom-in}.inspectimg{cursor:zoom-out}
 @media(max-width:700px){.inspectback{padding:12px}.inspectimg{width:96vw;max-height:92vh}.inspectimg.site{width:86vh;max-width:86vh;max-height:86vw}}
+
+.quicktoggle{display:none}
+@media(max-width:700px){
+ .quicktoggle{display:flex;width:100%;align-items:center;justify-content:space-between;margin:8px 0;padding:10px 12px;font-weight:700}
+ .quicktoggle .chev{transition:transform .15s ease}
+ .quicktoggle[aria-expanded="false"] .chev{transform:rotate(-90deg)}
+ .quickfilters.mobile-collapsed{display:none}
+}
 </style>
 </head>
 <body>
 <header><div class="wrap">
  <div class="top">
-  <h1>Ledger <small style="color:#777;font:12px system-ui">prototype v9.4</small></h1>
+  <h1>Ledger <small style="color:#777;font:12px system-ui">prototype v9.5</small></h1>
   <div class="status">Local copy: <b id="saved">not created</b></div>
   <div class="status">Backup: <b id="backup">none</b></div>
   <button id="curiosaBtn">Import collection CSV</button>
@@ -72,7 +80,10 @@ main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border
 <main>
  <div class="notice"><span id="noticeText">Loading catalogue from data.sorcery.no...</span></div>
  <div class="catalogueStatus" id="catalogueStatus">Catalogue: loading...</div>
- <div class="quickfilters">
+ <button class="quicktoggle" id="quickToggle" type="button" aria-expanded="true" aria-controls="quickFilters">
+  <span>Quick filters</span><span class="chev">▾</span>
+ </button>
+ <div class="quickfilters" id="quickFilters">
   <div class="filterrow" data-tier="type"><span class="filtertitle">Type</span>
    <button class="chip" data-value="Avatar">Avatar</button><button class="chip" data-value="Minion">Minion</button><button class="chip" data-value="Magic">Magic</button><button class="chip" data-value="Aura">Aura</button><button class="chip" data-value="Artifact">Artifact</button><button class="chip" data-value="Site">Site</button>
    <button class="clearfilters" id="clearQuick">Clear quick filters</button>
@@ -312,6 +323,26 @@ function refreshStats(){
  $('totalOwned').textContent=[...inv.values()].reduce((a,b)=>a+b,0);
 }
 const quick={type:new Map(),element:new Map(),rarity:new Map()};
+
+
+const QUICK_COLLAPSE_KEY='ledger-quickfilters-collapsed';
+function setQuickCollapsed(collapsed){
+ const box=$('quickFilters'),btn=$('quickToggle');
+ box.classList.toggle('mobile-collapsed',collapsed);
+ btn.setAttribute('aria-expanded',String(!collapsed));
+ sessionStorage.setItem(QUICK_COLLAPSE_KEY,collapsed?'1':'0');
+}
+function initQuickCollapse(){
+ const mobile=window.matchMedia('(max-width:700px)').matches;
+ if(!mobile){setQuickCollapsed(false);return}
+ const saved=sessionStorage.getItem(QUICK_COLLAPSE_KEY);
+ setQuickCollapsed(saved===null?true:saved==='1');
+}
+$('quickToggle').onclick=()=>setQuickCollapsed(!$('quickFilters').classList.contains('mobile-collapsed'));
+window.matchMedia('(max-width:700px)').addEventListener('change',e=>{
+ if(!e.matches)setQuickCollapsed(false);
+ else initQuickCollapse();
+});
 
 const UI_STATE_KEY='sorcery-tracker-ui-v1';
 let restoringUI=false;
@@ -593,6 +624,7 @@ $('curiosaCancel').onclick=()=>{$('curiosaModal').classList.remove('open');pendi
 $('curiosaConfirm').onclick=replaceInventoryFromCuriosa;
 
 (async()=>{try{
+ initQuickCollapse();
  await openDB();meta=(await getMeta())||meta;await reloadInventory();
  const persistent=await ensurePersistentStorage();
  await loadCatalogue();refreshStats();updateStatus();
