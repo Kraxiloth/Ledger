@@ -53,12 +53,21 @@ main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border
  .quicktoggle[aria-expanded="false"] .chev{transform:rotate(-90deg)}
  .quickfilters.mobile-collapsed{display:none}
 }
+
+.mobiletoggle{display:none}
+@media(max-width:700px){
+ header{position:static}
+ .mobiletoggle,.quicktoggle{display:flex;width:100%;align-items:center;justify-content:space-between;margin:8px 0;padding:10px 12px;font-weight:700}
+ .mobiletoggle .chev,.quicktoggle .chev{transition:transform .15s ease}
+ .mobiletoggle[aria-expanded="false"] .chev,.quicktoggle[aria-expanded="false"] .chev{transform:rotate(-90deg)}
+ #baseFilters.mobile-collapsed,.quickfilters.mobile-collapsed{display:none}
+}
 </style>
 </head>
 <body>
 <header><div class="wrap">
  <div class="top">
-  <h1>Ledger <small style="color:#777;font:12px system-ui">prototype v9.5</small></h1>
+  <h1>Ledger <small style="color:#777;font:12px system-ui">prototype v9.6</small></h1>
   <div class="status">Local copy: <b id="saved">not created</b></div>
   <div class="status">Backup: <b id="backup">none</b></div>
   <button id="curiosaBtn">Import collection CSV</button>
@@ -68,7 +77,8 @@ main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border
   <input id="fileInput" type="file" accept=".json,application/json" hidden>
   <button id="exportBtn" title="Export tracker-specific JSON backup">Export tracker backup</button>
  </div>
- <div class="toolbar">
+ <button class="mobiletoggle" id="baseToggle" type="button" aria-expanded="false" aria-controls="baseFilters"><span>Filters</span><span class="chev">▾</span></button>
+ <div class="toolbar" id="baseFilters">
   <input id="search" placeholder="Search cards...">
   <select id="setFilter"><option value="">All sets</option></select>
   <select id="rarityFilter"><option value="">All rarities</option></select>
@@ -325,6 +335,22 @@ function refreshStats(){
 const quick={type:new Map(),element:new Map(),rarity:new Map()};
 
 
+
+const BASE_COLLAPSE_KEY='ledger-basefilters-collapsed';
+function setBaseCollapsed(collapsed){
+ const box=$('baseFilters'),btn=$('baseToggle');
+ box.classList.toggle('mobile-collapsed',collapsed);
+ btn.setAttribute('aria-expanded',String(!collapsed));
+ sessionStorage.setItem(BASE_COLLAPSE_KEY,collapsed?'1':'0');
+}
+function initBaseCollapse(){
+ const mobile=window.matchMedia('(max-width:700px)').matches;
+ if(!mobile){setBaseCollapsed(false);return}
+ const saved=sessionStorage.getItem(BASE_COLLAPSE_KEY);
+ setBaseCollapsed(saved===null?true:saved==='1');
+}
+$('baseToggle').onclick=()=>setBaseCollapsed(!$('baseFilters').classList.contains('mobile-collapsed'));
+
 const QUICK_COLLAPSE_KEY='ledger-quickfilters-collapsed';
 function setQuickCollapsed(collapsed){
  const box=$('quickFilters'),btn=$('quickToggle');
@@ -340,8 +366,8 @@ function initQuickCollapse(){
 }
 $('quickToggle').onclick=()=>setQuickCollapsed(!$('quickFilters').classList.contains('mobile-collapsed'));
 window.matchMedia('(max-width:700px)').addEventListener('change',e=>{
- if(!e.matches)setQuickCollapsed(false);
- else initQuickCollapse();
+ if(!e.matches){setQuickCollapsed(false);setBaseCollapsed(false)}
+ else{initQuickCollapse();initBaseCollapse()}
 });
 
 const UI_STATE_KEY='sorcery-tracker-ui-v1';
@@ -625,6 +651,7 @@ $('curiosaConfirm').onclick=replaceInventoryFromCuriosa;
 
 (async()=>{try{
  initQuickCollapse();
+ initBaseCollapse();
  await openDB();meta=(await getMeta())||meta;await reloadInventory();
  const persistent=await ensurePersistentStorage();
  await loadCatalogue();refreshStats();updateStatus();
