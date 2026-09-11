@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ledger - Prototype v10</title>
+<title>Ledger - Prototype v10.2</title>
 <style>
 :root{--bg:#111315;--panel:#191c20;--panel2:#20242a;--text:#eee8dc;--muted:#aaa49a;--line:#34383e;--accent:#c6a15b;--warn:#d2a34a;--ok:#77ad78}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
@@ -67,7 +67,7 @@ main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border
 <body>
 <header><div class="wrap">
  <div class="top">
-  <h1>Ledger <small style="color:#777;font:12px system-ui">prototype v10</small></h1>
+  <h1>Ledger <small style="color:#777;font:12px system-ui">prototype v10.2</small></h1>
   <div class="status">Local copy: <b id="saved">not created</b></div>
   <div class="status">Backup: <b id="backup">none</b></div>
   <button id="curiosaBtn">Import collection CSV</button>
@@ -558,9 +558,23 @@ function exportCollectionCSV(){
 $('csvExportBtn').onclick=exportCollectionCSV;
 
 function cnExpansion(name){return name==='Promo'?'Promotional':name}
-function cnVariant(product){return ({BoxTopper:'Box Topper'})[product]||product||''}
+function cnVariant(product){
+ return ({
+  BoxTopper:'Box Topper',
+  PreconstructedDeck:'Preconstructed Deck',
+  DraftKit:'Draft Kit',
+  OrganizedPlay:'Organized Play'
+ })[product]||product||''
+}
 function officialExpansion(name){return name==='Promotional'?'Promo':name}
-function officialProduct(name){return ({'Box Topper':'BoxTopper'})[name]||name}
+function officialProduct(name){
+ return ({
+  'Box Topper':'BoxTopper',
+  'Preconstructed Deck':'PreconstructedDeck',
+  'Draft Kit':'DraftKit',
+  'Organized Play':'OrganizedPlay'
+ })[name]||name
+}
 async function cardNexusMetaMap(){
  const rows=await getAll('cardnexus'),m=new Map();for(const r of rows)m.set(r.slug,r);return m;
 }
@@ -619,18 +633,37 @@ function resolveCollectionRow(row){
  if(exact.length===1)return {status:'matched',row,card:canonical,variant:exact[0]};
  return {status:exact.length?'ambiguous':'unmatched',row,card:canonical,reason:exact.length?`${exact.length} printings match set/finish/product`:'No exact set/finish/product printing match'};
 }
+function normText(value){
+ return String(value??'').normalize('NFKC').trim().toLocaleLowerCase();
+}
 function resolveCardNexusRow(row){
- const canonical=cards.find(c=>c.name.toLocaleLowerCase()===String(row.name||'').toLocaleLowerCase());
- if(!canonical)return {status:'unmatched',row,reason:'Card name not found in catalogue'};
- const set=officialExpansion(row.expansion),finish=row.finish,product=officialProduct(row.variant);
- let exact=canonical.variants.filter(v=>v.set===set&&v.finish===finish&&v.product===product);
+ // Resolve against the raw official catalogue, not the UI's normalized card
+ // array. The latter is intentionally presentation-oriented and proved to be
+ // the wrong dependency for an interchange importer.
+ const rawCard=(window.__rawCatalogue||[]).find(c=>normText(c.name)===normText(row.name));
+ if(!rawCard)return {status:'unmatched',row,reason:'Card name not found in official catalogue'};
+ const set=officialExpansion(row.expansion),finish=String(row.finish||'').trim(),product=officialProduct(String(row.variant||'').trim());
+ let exact=(rawCard.printings||[]).filter(p=>
+  normText(p.set?.name)===normText(set) &&
+  normText(p.meta?.finish)===normText(finish) &&
+  normText(p.meta?.product)===normText(product)
+ );
  if(exact.length>1 && row.artist){
-  const raw=(window.__rawCatalogue||[]).find(c=>c.slug===canonical.slug);
-  const allowed=new Set((raw?.printings||[]).filter(p=>p.set?.name===set&&p.meta?.finish===finish&&p.meta?.product===product&&p.meta?.artist?.name===row.artist).map(p=>p.slug));
-  const narrowed=exact.filter(v=>allowed.has(v.slug));if(narrowed.length)exact=narrowed;
+  const narrowed=exact.filter(p=>normText(p.meta?.artist?.name)===normText(row.artist));
+  if(narrowed.length)exact=narrowed;
  }
- if(exact.length===1)return {status:'matched',row,card:canonical,variant:exact[0]};
- return {status:exact.length?'ambiguous':'unmatched',row,card:canonical,reason:exact.length?`${exact.length} printings match name/set/finish/variant`:'No exact name/set/finish/variant printing match'};
+ const canonical=cards.find(c=>c.id===rawCard.id||c.slug===rawCard.slug)||
+  {id:rawCard.id||'',slug:rawCard.slug||'',name:rawCard.name||''};
+ if(exact.length===1){
+  const p=exact[0];
+  return {status:'matched',row,card:canonical,variant:{
+   id:p.id||'',slug:p.slug||'',set:p.set?.name||'',setCode:p.set?.code||'',
+   finish:p.meta?.finish||'',product:p.meta?.product||'',typeline:p.meta?.typeline||'',
+   artist:p.meta?.artist?.name||''
+  }};
+ }
+ return {status:exact.length?'ambiguous':'unmatched',row,card:canonical,
+  reason:exact.length?`${exact.length} official printings match name/set/finish/variant`:'Card found, but no exact official printing matches set/finish/variant'};
 }
 function previewCollectionCSV(rows){
  const format=detectCSVFormat(rows);
