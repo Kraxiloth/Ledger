@@ -67,12 +67,13 @@ main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border
 <body>
 <header><div class="wrap">
  <div class="top">
-  <h1>Ledger <small style="color:#777;font:12px system-ui">prototype v9.6</small></h1>
+  <h1>Ledger <small style="color:#777;font:12px system-ui">prototype v10</small></h1>
   <div class="status">Local copy: <b id="saved">not created</b></div>
   <div class="status">Backup: <b id="backup">none</b></div>
   <button id="curiosaBtn">Import collection CSV</button>
   <input id="curiosaFile" type="file" accept=".csv,text/csv" hidden>
   <button class="primary" id="csvExportBtn">Export collection CSV</button>
+  <button id="cardNexusExportBtn" title="Export in CardNexus inventory CSV format">Export CardNexus CSV</button>
   <button id="importBtn" title="Restore tracker-specific JSON backup">Restore tracker backup</button>
   <input id="fileInput" type="file" accept=".json,application/json" hidden>
   <button id="exportBtn" title="Export tracker-specific JSON backup">Export tracker backup</button>
@@ -143,12 +144,12 @@ main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border
 const CATALOGUE_URL='https://data.sorcery.no/cards.json';
 const CATALOGUE_META_URL='https://data.sorcery.no/cards-meta.json';
 const IMAGE_BASE='https://d27a44hjr9gen3.cloudfront.net/cards/';
-const DB_NAME='sorcery-collection-prototype', DB_VERSION=2;
+const DB_NAME='sorcery-collection-prototype', DB_VERSION=3;
 let db,cards=[],filtered=[],rendered=0,inv=new Map(),catalogueMeta=null;
 let meta={revision:0,baselineRevision:0,lastModified:null,lastExported:null};
 const $=id=>document.getElementById(id);
 
-function openDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB_NAME,DB_VERSION);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('inventory'))d.createObjectStore('inventory',{keyPath:'slug'});if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta');if(!d.objectStoreNames.contains('catalogue'))d.createObjectStore('catalogue',{keyPath:'key'})};r.onsuccess=()=>{db=r.result;resolve()};r.onerror=()=>reject(r.error)})}
+function openDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB_NAME,DB_VERSION);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('inventory'))d.createObjectStore('inventory',{keyPath:'slug'});if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta');if(!d.objectStoreNames.contains('catalogue'))d.createObjectStore('catalogue',{keyPath:'key'});if(!d.objectStoreNames.contains('cardnexus'))d.createObjectStore('cardnexus',{keyPath:'slug'})};r.onsuccess=()=>{db=r.result;resolve()};r.onerror=()=>reject(r.error)})}
 function store(n,m='readonly'){return db.transaction(n,m).objectStore(n)}
 function getAll(n){return new Promise((res,rej)=>{const r=store(n).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 function getOne(n,key){return new Promise((res,rej)=>{const r=store(n).get(key);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
@@ -528,124 +529,141 @@ new IntersectionObserver(entries=>{if(entries[0].isIntersecting&&rendered<filter
 
 
 const COLLECTION_CSV_HEADERS=['Card Name','Card Slug','Quantity','Set Name','Printed At','Product','Finish','Notes'];
+const CARDNEXUS_HEADERS=['totalQtyOwned','name','finish','variant','expansion','language','elements','type','subType','cost','airThreshold','fireThreshold','earthThreshold','waterThreshold','finishes','artist','rarity','location','sellValue','tags','productId','game','printNumber','condition','notes','comment','price','rulesText','typeText','flavorText','attack','defense','life'];
+
 function csvCell(value){
  const s=String(value??'');
  return /[",\r\n]/.test(s)?'"'+s.replaceAll('"','""')+'"':s;
 }
+function downloadCSV(text,filename){
+ const blob=new Blob(['\uFEFF'+text],{type:'text/csv;charset=utf-8'}),a=document.createElement('a'),url=URL.createObjectURL(blob);
+ a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function rowsToCSV(headers,rows){return [headers.join(','),...rows.map(row=>headers.map(h=>csvCell(row[h])).join(','))].join('\r\n')+'\r\n'}
+
 function buildCollectionCSV(){
  const raw=window.__rawCatalogue||[],rows=[];
  for(const card of raw)for(const p of card.printings||[]){
   const quantity=inv.get(p.slug)||0;if(quantity<=0)continue;
-  rows.push({'Card Name':card.name||'','Card Slug':card.slug||'','Quantity':quantity,
-   'Set Name':p.set?.name||'','Printed At':p.printedAt||'','Product':p.meta?.product||'',
-   'Finish':p.meta?.finish||'','Notes':''});
+  rows.push({'Card Name':card.name||'','Card Slug':card.slug||'','Quantity':quantity,'Set Name':p.set?.name||'',
+   'Printed At':p.printedAt||'','Product':p.meta?.product||'','Finish':p.meta?.finish||'','Notes':''});
  }
  rows.sort((a,b)=>a['Card Name'].localeCompare(b['Card Name'])||a['Set Name'].localeCompare(b['Set Name'])||a['Finish'].localeCompare(b['Finish']));
- const lines=[COLLECTION_CSV_HEADERS.join(',')];
- for(const row of rows)lines.push(COLLECTION_CSV_HEADERS.map(h=>csvCell(row[h])).join(','));
- return {text:'\uFEFF'+lines.join('\r\n')+'\r\n',rows};
+ return rows;
 }
 function exportCollectionCSV(){
- const {text,rows}=buildCollectionCSV();
- if(!rows.length){alert('There are no owned cards to export.');return}
- const blob=new Blob([text],{type:'text/csv;charset=utf-8'}),a=document.createElement('a'),url=URL.createObjectURL(blob);
- a.href=url;a.download=`sorcery-collection-${new Date().toISOString().slice(0,10)}.csv`;a.click();
- setTimeout(()=>URL.revokeObjectURL(url),1000);
+ const rows=buildCollectionCSV();if(!rows.length){alert('There are no owned cards to export.');return}
+ downloadCSV(rowsToCSV(COLLECTION_CSV_HEADERS,rows),`sorcery-collection-${new Date().toISOString().slice(0,10)}.csv`);
 }
 $('csvExportBtn').onclick=exportCollectionCSV;
+
+function cnExpansion(name){return name==='Promo'?'Promotional':name}
+function cnVariant(product){return ({BoxTopper:'Box Topper'})[product]||product||''}
+function officialExpansion(name){return name==='Promotional'?'Promo':name}
+function officialProduct(name){return ({'Box Topper':'BoxTopper'})[name]||name}
+async function cardNexusMetaMap(){
+ const rows=await getAll('cardnexus'),m=new Map();for(const r of rows)m.set(r.slug,r);return m;
+}
+async function exportCardNexusCSV(){
+ const raw=window.__rawCatalogue||[],saved=await cardNexusMetaMap(),rows=[];
+ for(const card of raw){
+  const e=card.engine||{};
+  const finishes=[...new Set((card.printings||[]).map(p=>p.meta?.finish).filter(Boolean))].join(', ');
+  for(const p of card.printings||[]){
+   const quantity=inv.get(p.slug)||0;if(quantity<=0)continue;
+   const old=saved.get(p.slug)?.row||{};
+   const row={
+    totalQtyOwned:quantity,name:card.name||'',finish:p.meta?.finish||'',variant:cnVariant(p.meta?.product),
+    expansion:cnExpansion(p.set?.name),language:old.language||'en',
+    elements:(e.elements||[]).filter(x=>x!=='None').join(', '),type:e.type||'',subType:(e.subtypes||[]).join(', '),
+    cost:e.cost??'',airThreshold:e.air??0,fireThreshold:e.fire??0,earthThreshold:e.earth??0,waterThreshold:e.water??0,
+    finishes,artist:p.meta?.artist?.name||'',rarity:e.rarity||old.rarity||'',location:old.location||'',
+    sellValue:old.sellValue||'',tags:old.tags||'',productId:old.productId||'',game:old.game||'Sorcery: Contested Realm',
+    printNumber:old.printNumber||'',condition:old.condition||'Near Mint',notes:old.notes||'',comment:old.comment||'',
+    price:old.price||'',rulesText:e.rules||'',typeText:p.meta?.typeline||'',flavorText:p.meta?.flavor||'',
+    attack:e.attack??'',defense:e.defense??'',life:e.life??''
+   };
+   rows.push(row);
+  }
+ }
+ if(!rows.length){alert('There are no owned cards to export.');return}
+ rows.sort((a,b)=>a.name.localeCompare(b.name)||a.expansion.localeCompare(b.expansion)||a.finish.localeCompare(b.finish));
+ downloadCSV(rowsToCSV(CARDNEXUS_HEADERS,rows),`inventory_${new Date().toISOString().replace(/[:.]/g,'-')}.csv`);
+}
+$('cardNexusExportBtn').onclick=exportCardNexusCSV;
 
 let pendingCuriosaImport=null;
 
 function parseCSV(text){
  const rows=[];let row=[],field='',quoted=false;
- for(let i=0;i<text.length;i++){
-  const ch=text[i];
-  if(quoted){
-   if(ch==='"'&&text[i+1]==='"'){field+='"';i++}
-   else if(ch==='"')quoted=false;
-   else field+=ch;
-  }else{
-   if(ch==='"')quoted=true;
-   else if(ch===','){row.push(field);field=''}
-   else if(ch==='\n'){row.push(field);rows.push(row);row=[];field=''}
-   else if(ch!=='\r')field+=ch;
-  }
+ for(let i=0;i<text.length;i++){const ch=text[i];
+  if(quoted){if(ch==='"'&&text[i+1]==='"'){field+='"';i++}else if(ch==='"')quoted=false;else field+=ch}
+  else{if(ch==='"')quoted=true;else if(ch===','){row.push(field);field=''}else if(ch==='\n'){row.push(field);rows.push(row);row=[];field=''}else if(ch!=='\r')field+=ch}
  }
  if(field.length||row.length){row.push(field);rows.push(row)}
  if(!rows.length)return [];
- const headers=rows.shift().map(h=>h.trim());
+ const headers=rows.shift().map(h=>h.replace(/^\uFEFF/,'').trim());
  return rows.filter(r=>r.some(x=>x.trim()!=='')).map(r=>Object.fromEntries(headers.map((h,i)=>[h,(r[i]??'').trim()])));
 }
-
+function detectCSVFormat(rows){
+ if(!rows.length)return null;const r=rows[0];
+ if(COLLECTION_CSV_HEADERS.every(h=>h in r))return 'collection';
+ if(['totalQtyOwned','name','finish','variant','expansion','productId'].every(h=>h in r))return 'cardnexus';
+ return null;
+}
 function resolveCollectionRow(row){
  const canonical=cards.find(c=>c.slug===row['Card Slug']);
  if(!canonical)return {status:'unmatched',row,reason:'Canonical card slug not found'};
  const set=row['Set Name'],finish=row['Finish'],product=row['Product'];
  const exact=canonical.variants.filter(v=>v.set===set&&v.finish===finish&&v.product===product);
  if(exact.length===1)return {status:'matched',row,card:canonical,variant:exact[0]};
- if(exact.length>1)return {status:'ambiguous',row,card:canonical,reason:`${exact.length} printings match set/finish/product`};
-
- // Printed At is useful as an additional discriminator if Curiosa/product metadata ever overlaps.
- const printed=row['Printed At'];
- const rawCard=(window.__rawCatalogue||[]).find(c=>c.slug===row['Card Slug']);
- if(rawCard&&printed){
-  const p=rawCard.printings.filter(p=>p.set?.name===set&&p.meta?.finish===finish&&p.meta?.product===product&&p.printedAt===printed);
-  if(p.length===1){
-   const variant=canonical.variants.find(v=>v.slug===p[0].slug);
-   if(variant)return {status:'matched',row,card:canonical,variant};
-  }
+ return {status:exact.length?'ambiguous':'unmatched',row,card:canonical,reason:exact.length?`${exact.length} printings match set/finish/product`:'No exact set/finish/product printing match'};
+}
+function resolveCardNexusRow(row){
+ const canonical=cards.find(c=>c.name.toLocaleLowerCase()===String(row.name||'').toLocaleLowerCase());
+ if(!canonical)return {status:'unmatched',row,reason:'Card name not found in catalogue'};
+ const set=officialExpansion(row.expansion),finish=row.finish,product=officialProduct(row.variant);
+ let exact=canonical.variants.filter(v=>v.set===set&&v.finish===finish&&v.product===product);
+ if(exact.length>1 && row.artist){
+  const raw=(window.__rawCatalogue||[]).find(c=>c.slug===canonical.slug);
+  const allowed=new Set((raw?.printings||[]).filter(p=>p.set?.name===set&&p.meta?.finish===finish&&p.meta?.product===product&&p.meta?.artist?.name===row.artist).map(p=>p.slug));
+  const narrowed=exact.filter(v=>allowed.has(v.slug));if(narrowed.length)exact=narrowed;
  }
- return {status:'unmatched',row,card:canonical,reason:'No exact set/finish/product printing match'};
+ if(exact.length===1)return {status:'matched',row,card:canonical,variant:exact[0]};
+ return {status:exact.length?'ambiguous':'unmatched',row,card:canonical,reason:exact.length?`${exact.length} printings match name/set/finish/variant`:'No exact name/set/finish/variant printing match'};
 }
-
 function previewCollectionCSV(rows){
- const required=['Card Name','Card Slug','Quantity','Set Name','Printed At','Product','Finish','Notes'];
- const missing=required.filter(h=>!rows.length||!(h in rows[0]));
- if(missing.length)throw new Error('Missing CSV columns: '+missing.join(', '));
- const results=rows.map(resolveCollectionRow);
- const physical=rows.reduce((n,r)=>n+(Number.parseInt(r.Quantity,10)||0),0);
- const matched=results.filter(r=>r.status==='matched');
- const problems=results.filter(r=>r.status!=='matched');
- pendingCuriosaImport={rows,results,matched,problems,physical};
- $('ciRows').textContent=rows.length;
- $('ciCards').textContent=physical;
- $('ciMatched').textContent=matched.length;
- $('ciProblems').textContent=problems.length;
- $('curiosaSummary').textContent=problems.length
-  ? 'Nothing has been changed yet. Resolve the rows below before importing.'
-  : 'Every row resolved to one exact catalogue printing. Nothing has been changed yet. Importing will replace the current inventory with this CSV snapshot.';
- $('curiosaIssues').textContent=problems.length
-  ? problems.map(p=>`${p.row['Card Name']} (${p.row['Set Name']} / ${p.row['Finish']} / ${p.row['Product']}): ${p.reason}`).join('\n')
-  : 'No problems found.';
- $('curiosaConfirm').disabled=problems.length>0;
- $('curiosaModal').classList.add('open');
+ const format=detectCSVFormat(rows);
+ if(!format)throw new Error('CSV format not recognized as Curiosa-compatible or CardNexus inventory.');
+ const results=rows.map(format==='cardnexus'?resolveCardNexusRow:resolveCollectionRow);
+ const qtyKey=format==='cardnexus'?'totalQtyOwned':'Quantity';
+ const physical=rows.reduce((n,r)=>n+(Number.parseInt(r[qtyKey],10)||0),0),matched=results.filter(r=>r.status==='matched'),problems=results.filter(r=>r.status!=='matched');
+ pendingCuriosaImport={format,rows,results,matched,problems,physical};
+ $('ciRows').textContent=rows.length;$('ciCards').textContent=physical;$('ciMatched').textContent=matched.length;$('ciProblems').textContent=problems.length;
+ const label=format==='cardnexus'?'CardNexus':'collection';
+ $('curiosaSummary').textContent=problems.length?`${label} CSV detected. Nothing has been changed yet. Resolve the rows below before importing.`:`${label} CSV detected. Every row resolved to one exact catalogue printing. Importing will replace the current inventory.`;
+ $('curiosaIssues').textContent=problems.length?problems.map(p=>`${p.row.name||p.row['Card Name']} (${p.row.expansion||p.row['Set Name']} / ${p.row.finish||p.row['Finish']} / ${p.row.variant||p.row['Product']}): ${p.reason}`).join('\n'):'No problems found.';
+ $('curiosaConfirm').disabled=problems.length>0;$('curiosaModal').classList.add('open');
 }
-
 async function replaceInventoryFromCuriosa(){
  if(!pendingCuriosaImport||pendingCuriosaImport.problems.length)return;
- const tx=db.transaction(['inventory','meta'],'readwrite');
- const inventory=tx.objectStore('inventory');
- inventory.clear();
+ const stores=pendingCuriosaImport.format==='cardnexus'?['inventory','meta','cardnexus']:['inventory','meta'];
+ const tx=db.transaction(stores,'readwrite'),inventory=tx.objectStore('inventory');inventory.clear();
+ if(pendingCuriosaImport.format==='cardnexus')tx.objectStore('cardnexus').clear();
  for(const m of pendingCuriosaImport.matched){
-  const quantity=Math.max(0,Number.parseInt(m.row.Quantity,10)||0);
-  if(quantity)inventory.put({slug:m.variant.slug,quantity});
+  const qkey=pendingCuriosaImport.format==='cardnexus'?'totalQtyOwned':'Quantity';
+  const quantity=Math.max(0,Number.parseInt(m.row[qkey],10)||0);if(quantity)inventory.put({slug:m.variant.slug,quantity});
+  if(pendingCuriosaImport.format==='cardnexus')tx.objectStore('cardnexus').put({slug:m.variant.slug,row:m.row});
  }
- const now=new Date().toISOString();
- const nextRevision=(meta.revision||0)+1;
- meta={...meta,revision:nextRevision,baselineRevision:nextRevision,lastModified:now,lastImported:now,baselineSource:'curiosa'};
+ const now=new Date().toISOString(),nextRevision=(meta.revision||0)+1;
+ meta={...meta,revision:nextRevision,baselineRevision:nextRevision,lastModified:now,lastImported:now,baselineSource:pendingCuriosaImport.format};
  tx.objectStore('meta').put(meta,'state');
  await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error)});
- await reloadInventory();refreshStats();updateStatus();applyFilters();
- $('curiosaModal').classList.remove('open');
- pendingCuriosaImport=null;
+ await reloadInventory();refreshStats();updateStatus();applyFilters();$('curiosaModal').classList.remove('open');pendingCuriosaImport=null;
 }
-
 $('curiosaBtn').onclick=()=>{$('curiosaFile').value='';$('curiosaFile').click()};
-$('curiosaFile').onchange=async e=>{
- const f=e.target.files?.[0];if(!f)return;
- try{previewCollectionCSV(parseCSV(await f.text()))}
- catch(err){alert('Could not import collection CSV: '+err.message)}
-};
+$('curiosaFile').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{previewCollectionCSV(parseCSV(await f.text()))}catch(err){alert('Could not import collection CSV: '+err.message)}};
+$('curiosaConfirm').onclick=replaceInventoryFromCuriosa;
 $('curiosaCancel').onclick=()=>{$('curiosaModal').classList.remove('open');pendingCuriosaImport=null};
 $('curiosaConfirm').onclick=replaceInventoryFromCuriosa;
 
