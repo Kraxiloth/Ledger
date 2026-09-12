@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ledger - Prototype v10.2</title>
+<title>Ledger · Prototype v11.4</title>
 <style>
 :root{--bg:#111315;--panel:#191c20;--panel2:#20242a;--text:#eee8dc;--muted:#aaa49a;--line:#34383e;--accent:#c6a15b;--warn:#d2a34a;--ok:#77ad78}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
@@ -11,7 +11,7 @@ header{position:sticky;top:0;z-index:10;background:#121416f2;border-bottom:1px s
 .wrap,main{max-width:1450px;margin:auto;padding:16px 22px}.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 h1{font:600 21px Georgia,serif;margin:0;margin-right:auto}.status{font-size:13px;color:var(--muted)}.status b{color:var(--text)}
 button,select,input{background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:9px 11px}
-button{cursor:pointer}button:hover{border-color:#777}.primary{border-color:#8e7444;color:#f3dfb7}
+button{cursor:pointer}button:hover{border-color:#777}.primary{border-color:#8e7444;color:#f3dfb7}.headmenu{position:relative}.headmenu>summary{list-style:none;cursor:pointer;background:var(--panel2);border:1px solid var(--line);color:var(--text);border-radius:7px;padding:9px 11px;user-select:none}.headmenu>summary::-webkit-details-marker{display:none}.headmenu>summary:hover{border-color:#777}.headmenu[open]>summary{border-color:#777}.headmenuitems{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:230px;padding:6px;background:var(--panel);border:1px solid var(--line);border-radius:9px;box-shadow:0 12px 35px #0008}.headmenuitems button{display:block;width:100%;border:0;background:transparent;text-align:left;padding:9px 10px}.headmenuitems button:hover{background:var(--panel2)}
 .toolbar{display:grid;grid-template-columns:minmax(220px,1fr) repeat(3,170px) auto;gap:10px;margin-top:14px}
 main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border-radius:9px;padding:12px 14px;margin-bottom:16px}
 .stats{display:flex;gap:22px;flex-wrap:wrap;color:var(--muted);margin:10px 0 18px}.stats b{color:var(--text)}.catalogueStatus{font-size:12px;color:var(--muted);margin:8px 0 14px}
@@ -62,21 +62,41 @@ main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border
  .mobiletoggle[aria-expanded="false"] .chev,.quicktoggle[aria-expanded="false"] .chev{transform:rotate(-90deg)}
  #baseFilters.mobile-collapsed,.quickfilters.mobile-collapsed{display:none}
 }
+
+/* Lists & Decks */
+.viewtabs{display:flex;gap:8px;margin-top:12px}.viewtab.active{border-color:var(--accent);color:#f3dfb7;background:#27241e}
+.appview[hidden]{display:none!important}.libraryhead{display:flex;align-items:center;gap:10px;margin-bottom:16px}.libraryhead h2{margin:0 auto 0 0;font:600 22px Georgia,serif}
+.listlayout{display:grid;grid-template-columns:300px minmax(0,1fr);gap:16px}.listnav,.listworkspace,.deckpreview{background:var(--panel);border:1px solid var(--line);border-radius:11px}
+.listnav{padding:10px;height:max-content}.listnavitem{width:100%;text-align:left;padding:11px;margin:3px 0;background:transparent}.listnavitem.active{border-color:var(--accent);background:#27241e}.listnavitem small{display:block;color:var(--muted);margin-top:2px}
+.listworkspace{padding:18px;min-width:0}.listtitlebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:14px}.listtitlebar h2{margin:0 auto 0 0;font:600 24px Georgia,serif}.listdesc{color:var(--muted);margin:-4px 0 16px}
+.liststats{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px;color:var(--muted)}.liststats b{color:var(--text)}
+.entryrow{display:grid;grid-template-columns:50px minmax(0,1fr) 72px 86px 34px;gap:8px;align-items:center;padding:8px 4px;border-bottom:1px solid #2b2e33}.entryrow:hover{background:#1e2125}.entryqty{display:flex;gap:4px;align-items:center}.entryqty button{width:26px;height:26px;padding:0}.entryqty span{min-width:18px;text-align:center}.ownedok{color:#9cc49d}.ownedmiss{color:#d7a0a0}.entryremove{width:30px;height:30px;padding:0}
+.sectionhead{margin:18px 0 4px;color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}.typehead{margin:12px 0 2px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
+.addpanel{margin-top:20px;border-top:1px solid var(--line);padding-top:16px}.addcontrols{display:grid;grid-template-columns:minmax(180px,1fr) 180px;gap:8px}.addresults{max-height:280px;overflow:auto;margin-top:8px;border:1px solid var(--line);border-radius:8px}.addresult{display:flex;align-items:center;gap:10px;width:100%;border:0;border-bottom:1px solid var(--line);border-radius:0;text-align:left;background:#17191c}.addresult:last-child{border-bottom:0}.addresult.keyboard-active{background:#24282e;outline:1px solid var(--accent);outline-offset:-1px}.addresult span:first-child{flex:1}.addresult small{color:var(--muted)}
+.decklayout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,390px);gap:20px}.deckpreview{position:sticky;top:calc(var(--ledger-header-height,0px) + 12px);height:max-content;max-height:calc(100vh - var(--ledger-header-height,0px) - 24px);overflow-y:auto;overscroll-behavior:contain;padding:14px;text-align:center;scrollbar-width:thin}.deckpreview img{display:block;width:100%;max-height:min(52vh,620px);object-fit:contain;cursor:zoom-in}.deckpreview img.site{transform:none;margin:0}.previewname{font-weight:700;font-size:17px;margin-top:8px}.previewmeta,.previewowned{color:var(--muted);font-size:13px;margin-top:4px}.deckconfig{margin-top:14px;text-align:left;border-top:1px solid var(--line);padding-top:12px}.zonecontrols{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin:7px 0}.zonecontrols .entryqty{justify-content:flex-end}.zoneqtyinput{width:54px;text-align:center;padding:5px 4px}.printblock{margin-top:12px}.printlabel{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:9px 0 5px}.printselect{width:100%;margin-bottom:5px}.copyprint{display:grid;grid-template-columns:26px 1fr;gap:6px;align-items:center;margin:4px 0}.copyprint span{color:var(--muted);font-size:12px;text-align:right}.validation{border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:14px}.validation.ok{border-color:#426348}.validation.warn{border-color:#735e3d}.validationline{display:flex;justify-content:space-between;gap:12px;font-size:13px;margin:3px 0}.validation .bad{color:#d7a0a0}.validation .good{color:#9cc49d}
+.emptyworkspace{padding:70px 20px;text-align:center;color:var(--muted)}
+.creategrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.creategrid label{display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:12px}.creategrid .wide{grid-column:1/-1}
+@media(max-width:900px){.listlayout{grid-template-columns:1fr}.decklayout{grid-template-columns:1fr}.deckpreview{position:static;display:none}.listnav{display:flex;overflow:auto}.listnavitem{min-width:180px}.entryrow{grid-template-columns:42px minmax(0,1fr) 64px 78px 30px}}
 </style>
 </head>
 <body>
 <header><div class="wrap">
  <div class="top">
-  <h1>Ledger <small style="color:#777;font:12px system-ui">prototype v10.2</small></h1>
+  <h1>Ledger <small style="color:#777;font:12px system-ui">prototype v11.6</small></h1>
   <div class="status">Local copy: <b id="saved">not created</b></div>
   <div class="status">Backup: <b id="backup">none</b></div>
-  <button id="curiosaBtn">Import collection CSV</button>
+  <details class="headmenu" id="importMenu"><summary>Import ▾</summary><div class="headmenuitems">
+   <button id="curiosaBtn">Collection CSV</button>
+   <button id="importBtn" title="Restore tracker-specific JSON backup">Ledger backup</button>
+  </div></details>
   <input id="curiosaFile" type="file" accept=".csv,text/csv" hidden>
-  <button class="primary" id="csvExportBtn">Export collection CSV</button>
-  <button id="cardNexusExportBtn" title="Export in CardNexus inventory CSV format">Export CardNexus CSV</button>
-  <button id="importBtn" title="Restore tracker-specific JSON backup">Restore tracker backup</button>
   <input id="fileInput" type="file" accept=".json,application/json" hidden>
-  <button id="exportBtn" title="Export tracker-specific JSON backup">Export tracker backup</button>
+  <input id="deckFileInput" type="file" accept=".json,application/json" hidden>
+  <details class="headmenu" id="exportMenu"><summary>Export ▾</summary><div class="headmenuitems">
+   <button id="csvExportBtn">Collection CSV</button>
+   <button id="cardNexusExportBtn" title="Export in CardNexus inventory CSV format">CardNexus CSV</button>
+   <button id="exportBtn" title="Export tracker-specific JSON backup">Ledger backup</button>
+  </div></details>
  </div>
  <button class="mobiletoggle" id="baseToggle" type="button" aria-expanded="false" aria-controls="baseFilters"><span>Filters</span><span class="chev">▾</span></button>
  <div class="toolbar" id="baseFilters">
@@ -87,8 +107,12 @@ main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border
   <select id="ownershipFilter"><option value="all">All cards</option><option value="owned">Owned</option><option value="unowned">Unowned</option></select>
   <select id="sortBy"><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option><option value="set">Set</option><option value="rarity">Rarity</option></select>
  </div>
+ <div class="viewtabs" role="tablist">
+  <button class="viewtab active" data-view="inventoryView">Inventory</button>
+  <button class="viewtab" data-view="listsView">Lists &amp; Decks</button>
+ </div>
 </div></header>
-<main>
+<main id="inventoryView" class="appview">
  <div class="notice"><span id="noticeText">Loading catalogue from data.sorcery.no...</span></div>
  <div class="catalogueStatus" id="catalogueStatus">Catalogue: loading...</div>
  <button class="quicktoggle" id="quickToggle" type="button" aria-expanded="true" aria-controls="quickFilters">
@@ -115,6 +139,24 @@ main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border
  <div id="grid" class="grid"></div>
  <div id="sentinel" style="height:30px"></div>
 </main>
+<main id="listsView" class="appview" hidden>
+ <div class="libraryhead"><h2>Lists &amp; Decks</h2><button id="globalDeckImportBtn">Import deck</button><button id="newListBtn">New list</button><button class="primary" id="newDeckBtn">New deck</button></div>
+ <div class="listlayout">
+  <aside class="listnav" id="listNav"></aside>
+  <section class="listworkspace" id="listWorkspace"><div class="emptyworkspace">Create a list or deck to get started.</div></section>
+ </div>
+</main>
+<div class="modalback" id="createListModal">
+ <div class="modal" style="width:min(520px,100%)">
+  <h2 id="createListHeading">Create list</h2>
+  <div class="creategrid">
+   <label class="wide">Name<input id="createListName" maxlength="80" placeholder="e.g. Gothic Master Set"></label>
+   <label class="wide">Description<input id="createListDescription" maxlength="180" placeholder="Optional"></label>
+   <label class="wide">Tags<input id="createListTags" placeholder="Comma-separated, optional"></label>
+  </div>
+  <div class="modalactions"><button id="createListCancel">Cancel</button><button class="primary" id="createListConfirm">Create</button></div>
+ </div>
+</div>
 <div class="modalback" id="curiosaModal">
  <div class="modal">
   <h2>Collection CSV import</h2>
@@ -144,12 +186,17 @@ main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border
 const CATALOGUE_URL='https://data.sorcery.no/cards.json';
 const CATALOGUE_META_URL='https://data.sorcery.no/cards-meta.json';
 const IMAGE_BASE='https://d27a44hjr9gen3.cloudfront.net/cards/';
-const DB_NAME='sorcery-collection-prototype', DB_VERSION=3;
+const DB_NAME='sorcery-collection-prototype', DB_VERSION=4;
 let db,cards=[],filtered=[],rendered=0,inv=new Map(),catalogueMeta=null;
 let meta={revision:0,baselineRevision:0,lastModified:null,lastExported:null};
 const $=id=>document.getElementById(id);
+function syncLedgerHeaderHeight(){const h=document.querySelector('header');if(h)document.documentElement.style.setProperty('--ledger-header-height',`${Math.ceil(h.getBoundingClientRect().height)}px`)}
+window.addEventListener('resize',syncLedgerHeaderHeight);
+window.addEventListener('load',syncLedgerHeaderHeight);
+if('ResizeObserver' in window){const headerSizeObserver=new ResizeObserver(syncLedgerHeaderHeight);const observedHeader=document.querySelector('header');if(observedHeader)headerSizeObserver.observe(observedHeader)}
 
-function openDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB_NAME,DB_VERSION);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('inventory'))d.createObjectStore('inventory',{keyPath:'slug'});if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta');if(!d.objectStoreNames.contains('catalogue'))d.createObjectStore('catalogue',{keyPath:'key'});if(!d.objectStoreNames.contains('cardnexus'))d.createObjectStore('cardnexus',{keyPath:'slug'})};r.onsuccess=()=>{db=r.result;resolve()};r.onerror=()=>reject(r.error)})}
+
+function openDB(){return new Promise((resolve,reject)=>{const r=indexedDB.open(DB_NAME,DB_VERSION);r.onupgradeneeded=()=>{const d=r.result;if(!d.objectStoreNames.contains('inventory'))d.createObjectStore('inventory',{keyPath:'slug'});if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta');if(!d.objectStoreNames.contains('catalogue'))d.createObjectStore('catalogue',{keyPath:'key'});if(!d.objectStoreNames.contains('cardnexus'))d.createObjectStore('cardnexus',{keyPath:'slug'});if(!d.objectStoreNames.contains('lists'))d.createObjectStore('lists',{keyPath:'id'})};r.onsuccess=()=>{db=r.result;resolve()};r.onerror=()=>reject(r.error)})}
 function store(n,m='readonly'){return db.transaction(n,m).objectStore(n)}
 function getAll(n){return new Promise((res,rej)=>{const r=store(n).getAll();r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 function getOne(n,key){return new Promise((res,rej)=>{const r=store(n).get(key);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
@@ -503,19 +550,26 @@ function renderMore(){
  $('grid').appendChild(frag);rendered+=batch.length;
 }
 function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function replaceStoreContents(name,rows){return new Promise((resolve,reject)=>{const tx=db.transaction(name,'readwrite'),os=tx.objectStore(name);os.clear();for(const row of rows||[])os.put(row);tx.oncomplete=()=>resolve();tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error(`Could not restore ${name}.`))})}
 async function exportBackup(){
- const inventory=await getAll('inventory'),now=new Date().toISOString();
- const out={format:'sorcery-collection',schemaVersion:1,exportedAt:now,revision:meta.revision,inventory};
- const blob=new Blob([JSON.stringify(out,null,2)],{type:'application/json'}),a=document.createElement('a');
- a.href=URL.createObjectURL(blob);a.download=`sorcery-collection-${now.slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+ const [inventory,cardnexus,lists]=await Promise.all([getAll('inventory'),getAll('cardnexus'),getAll('lists')]),now=new Date().toISOString();
+ const out={format:'sorcery-collection',schemaVersion:2,exportedAt:now,revision:meta.revision,inventory,cardnexus,lists};
+ const blob=new Blob([JSON.stringify(out,null,2)+'\n'],{type:'application/json'}),a=document.createElement('a');
+ a.href=URL.createObjectURL(blob);a.download=`ledger-backup-${now.slice(0,10)}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
  meta.baselineRevision=meta.revision;meta.lastExported=now;saveMeta();
 }
 async function importBackup(file){
- const o=JSON.parse(await file.text());if(o.format!=='sorcery-collection'||!Array.isArray(o.inventory))throw new Error('Not a compatible Sorcery Collection backup');
- const s=store('inventory','readwrite');s.clear();for(const row of o.inventory)s.put({slug:row.slug,quantity:Math.max(0,Number(row.quantity)||0)});
+ const o=JSON.parse(await file.text());if(o.format!=='sorcery-collection'||!Array.isArray(o.inventory))throw new Error('Not a compatible Ledger backup');
+ if(Number(o.schemaVersion||1)>2)throw new Error('This Ledger backup was created by a newer backup format.');
+ await replaceStoreContents('inventory',o.inventory.map(row=>({slug:row.slug,quantity:Math.max(0,Number(row.quantity)||0)})));
+ if(Number(o.schemaVersion||1)>=2){
+  await replaceStoreContents('cardnexus',Array.isArray(o.cardnexus)?o.cardnexus:[]);
+  await replaceStoreContents('lists',Array.isArray(o.lists)?o.lists:[]);
+ }
  meta.revision=Number(o.revision)||1;meta.baselineRevision=meta.revision;meta.lastModified=new Date().toISOString();meta.lastExported=o.exportedAt||null;saveMeta();
- await reloadInventory();refreshStats();applyFilters();
+ await reloadInventory();await loadLists();refreshStats();applyFilters();
 }
+
 document.querySelectorAll('.chip').forEach(btn=>btn.addEventListener('click',()=>cycleChip(btn)));
 $('clearQuick').onclick=()=>{
  for(const tier of Object.values(quick))tier.clear();
@@ -523,7 +577,7 @@ $('clearQuick').onclick=()=>{
  applyFilters();
 };
 ['search','setFilter','rarityFilter','finishFilter','ownershipFilter','sortBy'].forEach(id=>$(id).addEventListener(id==='search'?'input':'change',()=>{applyFilters();saveUIState()}));
-$('exportBtn').onclick=exportBackup;$('importBtn').onclick=()=>$('fileInput').click();
+$('exportBtn').onclick=()=>{exportBackup();$('exportMenu')?.removeAttribute('open')};$('importBtn').onclick=()=>{$('fileInput').click();$('importMenu')?.removeAttribute('open')};
 $('fileInput').onchange=async e=>{try{if(e.target.files[0])await importBackup(e.target.files[0])}catch(err){alert(err.message)}};
 new IntersectionObserver(entries=>{if(entries[0].isIntersecting&&rendered<filtered.length)renderMore()},{rootMargin:'1000px'}).observe($('sentinel'));
 
@@ -555,7 +609,7 @@ function exportCollectionCSV(){
  const rows=buildCollectionCSV();if(!rows.length){alert('There are no owned cards to export.');return}
  downloadCSV(rowsToCSV(COLLECTION_CSV_HEADERS,rows),`sorcery-collection-${new Date().toISOString().slice(0,10)}.csv`);
 }
-$('csvExportBtn').onclick=exportCollectionCSV;
+$('csvExportBtn').onclick=()=>{exportCollectionCSV();$('exportMenu')?.removeAttribute('open')};
 
 function cnExpansion(name){return name==='Promo'?'Promotional':name}
 function cnVariant(product){
@@ -604,7 +658,7 @@ async function exportCardNexusCSV(){
  rows.sort((a,b)=>a.name.localeCompare(b.name)||a.expansion.localeCompare(b.expansion)||a.finish.localeCompare(b.finish));
  downloadCSV(rowsToCSV(CARDNEXUS_HEADERS,rows),`inventory_${new Date().toISOString().replace(/[:.]/g,'-')}.csv`);
 }
-$('cardNexusExportBtn').onclick=exportCardNexusCSV;
+$('cardNexusExportBtn').onclick=()=>{exportCardNexusCSV();$('exportMenu')?.removeAttribute('open')};
 
 let pendingCuriosaImport=null;
 
@@ -694,18 +748,126 @@ async function replaceInventoryFromCuriosa(){
  await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error)});
  await reloadInventory();refreshStats();updateStatus();applyFilters();$('curiosaModal').classList.remove('open');pendingCuriosaImport=null;
 }
-$('curiosaBtn').onclick=()=>{$('curiosaFile').value='';$('curiosaFile').click()};
+$('curiosaBtn').onclick=()=>{$('curiosaFile').value='';$('curiosaFile').click();$('importMenu')?.removeAttribute('open')};
 $('curiosaFile').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{previewCollectionCSV(parseCSV(await f.text()))}catch(err){alert('Could not import collection CSV: '+err.message)}};
 $('curiosaConfirm').onclick=replaceInventoryFromCuriosa;
 $('curiosaCancel').onclick=()=>{$('curiosaModal').classList.remove('open');pendingCuriosaImport=null};
 $('curiosaConfirm').onclick=replaceInventoryFromCuriosa;
+
+
+// ---------- Lists & Decks (local-first) ----------
+let ledgerLists=[],activeListId=null,createKind='list',pinnedDeckCard=null;
+const makeId=()=>crypto.randomUUID?crypto.randomUUID():`${Date.now().toString(36)}-${crypto.getRandomValues(new Uint32Array(2)).join('-')}`;
+function cardById(id){return cards.find(c=>c.id===id)}
+function ownedCanonical(c){return c?c.variants.reduce((n,v)=>n+(inv.get(v.slug)||0),0):0}
+function listTotal(l){return (l.entries||[]).reduce((n,e)=>n+(Number(e.quantity)||0),0)}
+function deckZoneLabel(z){return ({avatar:'Avatar',spellbook:'Spellbook',atlas:'Atlas',collection:'Collection',maybeboard:'Maybeboard'})[z]||'List'}
+async function loadLists(){ledgerLists=await getAll('lists');ledgerLists.sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));if(activeListId&&!ledgerLists.some(x=>x.id===activeListId))activeListId=null;renderListNav();renderListWorkspace()}
+async function saveList(l){l.updatedAt=new Date().toISOString();await putOne('lists',l);await loadLists();activeListId=l.id;renderListNav();renderListWorkspace()}
+function deleteListRecord(id){return new Promise((res,rej)=>{const r=store('lists','readwrite').delete(id);r.onsuccess=res;r.onerror=()=>rej(r.error)})}
+function renderListNav(){const n=$('listNav');if(!n)return;n.innerHTML='';if(!ledgerLists.length){n.innerHTML='<div style="padding:10px;color:var(--muted)">No lists yet.</div>';return}for(const l of ledgerLists){const b=document.createElement('button');b.className='listnavitem'+(l.id===activeListId?' active':'');b.innerHTML=`${esc(l.name)}<small>${l.kind==='deck'?'Deck':'List'} · ${listTotal(l)} cards</small>`;b.onclick=()=>{activeListId=l.id;renderListNav();renderListWorkspace()};n.appendChild(b)}}
+function listCompletion(l){let req=0,have=0;for(const e of l.entries||[]){const q=Math.max(0,Number(e.quantity)||0),c=cardById(e.cardId);req+=q;have+=Math.min(q,ownedCanonical(c))}return {req,have,missing:req-have}}
+function inferDeckZone(c){if(c.type==='Avatar')return'avatar';if(c.type==='Site')return'atlas';return'spellbook'}
+function sortedEntries(entries){const order={Avatar:0,Aura:1,Artifact:2,Minion:3,Magic:4,Site:5};return [...entries].sort((a,b)=>{const ca=cardById(a.cardId),cb=cardById(b.cardId);return (order[ca?.type]??99)-(order[cb?.type]??99)||(ca?.name||'').localeCompare(cb?.name||'')})}
+function deckEntry(l,cardId,zone){return (l.entries||[]).find(e=>e.cardId===cardId&&e.zone===zone)}
+function mainZone(c){return inferDeckZone(c)}
+function normalizeDeckEntry(e,c){
+ if(!e)return null;
+ if(e.preferredPrinting&&!e.variantSlug)e.variantSlug=e.preferredPrinting;
+ if(!e.variantSlug)e.variantSlug=(preferredVariant(c)||c?.variants?.[0])?.slug||null;
+ if(!Array.isArray(e.printAssignments))e.printAssignments=[];
+ while(e.printAssignments.length<(Number(e.quantity)||0))e.printAssignments.push(e.variantSlug||null);
+ if(e.printAssignments.length>(Number(e.quantity)||0))e.printAssignments.length=Number(e.quantity)||0;
+ return e;
+}
+function ensureDeckEntry(l,c,zone){let e=deckEntry(l,c.id,zone);if(!e){const v=preferredVariant(c)||c.variants[0];e={cardId:c.id,quantity:0,zone,variantSlug:v?.slug||null,printAssignments:[]};l.entries.push(e)}return normalizeDeckEntry(e,c)}
+function zoneQuantity(l,zone){return (l.entries||[]).filter(e=>e.zone===zone).reduce((n,e)=>n+(Number(e.quantity)||0),0)}
+function rarityLimit(c){return ({Ordinary:4,Exceptional:3,Elite:2,Unique:1})[c?.rarity]??Infinity}
+function deckValidation(l){
+ const avatar=zoneQuantity(l,'avatar'),spellbook=zoneQuantity(l,'spellbook'),atlas=zoneQuantity(l,'atlas'),collection=zoneQuantity(l,'collection');
+ const violations=[];
+ for(const e of l.entries||[]){if(!['spellbook','atlas'].includes(e.zone))continue;const c=cardById(e.cardId),limit=rarityLimit(c);if((Number(e.quantity)||0)>limit)violations.push(`${c?.name||'Unknown'} ${e.quantity}/${limit}`)}
+ return {avatar,spellbook,atlas,collection,violations,legal:avatar===1&&spellbook>=60&&atlas>=30&&collection===10&&!violations.length};
+}
+function validationHTML(l){const v=deckValidation(l),line=(name,value,rule,ok)=>`<div class="validationline"><span>${name}</span><span class="${ok?'good':'bad'}">${value} / ${rule}</span></div>`;return `<div class="validation ${v.legal?'ok':'warn'}"><div style="font-weight:700;margin-bottom:5px">Deck validation</div>${line('Avatar',v.avatar,'1',v.avatar===1)}${line('Spellbook',v.spellbook,'60 minimum',v.spellbook>=60)}${line('Atlas',v.atlas,'30 minimum',v.atlas>=30)}${line('Collection',v.collection,'10 exactly',v.collection===10)}<div class="validationline"><span>Rarity limits</span><span class="${v.violations.length?'bad':'good'}">${v.violations.length?v.violations.length+' violation'+(v.violations.length===1?'':'s'):'OK'}</span></div>${v.violations.length?`<div style="font-size:11px;color:var(--muted);margin-top:5px">${v.violations.map(esc).join(' · ')}</div>`:''}</div>`}
+function variantOptions(c,selected){return (c?.variants||[]).map(v=>`<option value="${esc(v.slug)}"${v.slug===selected?' selected':''}>${esc(v.set)} · ${esc(v.finish)}${(inv.get(v.slug)||0)?` · ${inv.get(v.slug)} owned`:''}</option>`).join('')}
+function previewDeckCard(c,l){
+ if(!c)return;pinnedDeckCard=c.id;const img=$('deckPreviewImg');if(!img)return;
+ const mz=mainZone(c),main=deckEntry(l,c.id,mz),coll=deckEntry(l,c.id,'collection'),maybe=deckEntry(l,c.id,'maybeboard');
+ const displayEntry=main||coll||maybe; if(displayEntry)normalizeDeckEntry(displayEntry,c);
+ const v=(displayEntry?.variantSlug&&c.variants.find(x=>x.slug===displayEntry.variantSlug))||preferredVariant(c)||c.variants[0];
+ if(v){img.src=imageUrl(v.slug);img.alt=c.name;img.classList.toggle('site',c.type==='Site');img.onclick=()=>openInspector(c,v)}else{img.removeAttribute('src');img.onclick=null;}
+ $('deckPreviewName').textContent=c.name;$('deckPreviewMeta').textContent=[c.rarity,c.type].filter(Boolean).join(' · ');
+ const mainQ=Number(main?.quantity)||0,collQ=Number(coll?.quantity)||0,maybeQ=Number(maybe?.quantity)||0,o=ownedCanonical(c),needed=mainQ+collQ;
+ $('deckPreviewOwned').textContent=`Owned ${o} · Deck + Collection ${needed}${o<needed?` · Missing ${needed-o}`:' · Available'}`;
+ renderDeckConfig(c,l);
+}
+function renderDeckConfig(c,l){const host=$('deckConfig');if(!host)return;const mz=mainZone(c),zones=[[mz,'Main deck'],['collection','Collection'],['maybeboard','Maybeboard']];let html='<div class="deckconfig">';for(const [z,label] of zones){const e=deckEntry(l,c.id,z),q=Number(e?.quantity)||0,max=z==='avatar'?1:(z==='collection'?10:'');html+=`<div class="zonecontrols"><span>${label}</span><div class="entryqty"><button type="button" data-zone-minus="${z}" ${q<=0?'disabled':''}>−</button><input class="zoneqtyinput" data-zone-qty="${z}" type="number" min="0" ${max!==''?`max="${max}"`:''} value="${q}" aria-label="${label} quantity"><button type="button" data-zone-plus="${z}">+</button></div></div>`}const active=deckEntry(l,c.id,mz)||deckEntry(l,c.id,'collection')||deckEntry(l,c.id,'maybeboard');if(active){normalizeDeckEntry(active,c);html+=`<div class="printblock"><div class="printlabel">Default printing · play / export art</div><select class="printselect" id="defaultPrint">${variantOptions(c,active.variantSlug)}</select><div class="printlabel">Physical copies · ${deckZoneLabel(active.zone)}</div>`;for(let i=0;i<active.quantity;i++)html+=`<div class="copyprint"><span>${i+1}</span><select data-copy-print="${i}">${variantOptions(c,active.printAssignments[i])}</select></div>`;html+='</div>'}html+='</div>';host.innerHTML=html;
+ host.querySelectorAll('[data-zone-minus]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();changeDeckZone(l,c,b.dataset.zoneMinus,-1)}));host.querySelectorAll('[data-zone-plus]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();changeDeckZone(l,c,b.dataset.zonePlus,1)}));host.querySelectorAll('[data-zone-qty]').forEach(inp=>inp.onchange=()=>setDeckZoneQuantity(l,c,inp.dataset.zoneQty,inp.value));
+ const dp=$('defaultPrint');if(dp&&active)dp.onchange=()=>setDefaultPrint(l,c,active.zone,dp.value);host.querySelectorAll('[data-copy-print]').forEach(sel=>sel.onchange=()=>setCopyPrint(l,c,active.zone,Number(sel.dataset.copyPrint),sel.value));
+}
+function entryRows(l,entries){let html='',lastType=null;for(const e of sortedEntries(entries)){const c=cardById(e.cardId);if(!c)continue;if(c.type!==lastType){lastType=c.type;html+=`<div class="typehead">${esc(c.type||'Other')}</div>`}const o=ownedCanonical(c),q=Number(e.quantity)||0;html+=`<div class="entryrow" data-card-id="${esc(c.id)}" data-zone="${esc(e.zone)}"><div class="entryqty"><button data-act="minus">−</button><span>${q}</span><button data-act="plus">+</button></div><div class="entryname">${esc(c.name)}</div><div>${esc(c.rarity||'')}</div><div class="${o>=q?'ownedok':'ownedmiss'}">${Math.min(o,q)}/${q}${o<q?` −${q-o}`:' ✓'}</div><button class="entryremove" data-act="remove" title="Remove">×</button></div>`}return html}
+function renderListWorkspace(){const w=$('listWorkspace');if(!w)return;const l=ledgerLists.find(x=>x.id===activeListId);if(!l){w.innerHTML=`<div class="emptyworkspace"><div style="font-size:18px;color:var(--text);font-weight:700;margin-bottom:8px">${ledgerLists.length?'Select a list or deck':'No lists or decks yet'}</div><div style="margin-bottom:18px">${ledgerLists.length?'Choose one from the left, or create something new.':'Create something new or restore an exported Ledger deck.'}</div><button id="emptyDeckImportBtn">Import deck</button></div>`;const b=$('emptyDeckImportBtn');if(b)b.onclick=triggerDeckImport;return}const comp=listCompletion(l);const tags=(l.tags||[]).map(t=>`<span class="chip">${esc(t)}</span>`).join(' ');let body='';if(l.kind==='deck'){
+ const zones=['avatar','spellbook','atlas','collection','maybeboard'];for(const z of zones){const es=(l.entries||[]).filter(e=>e.zone===z);body+=`<div class="sectionhead">${deckZoneLabel(z)} · ${es.reduce((n,e)=>n+e.quantity,0)}</div>${es.length?entryRows(l,es):'<div style="color:var(--muted);padding:5px 4px">No cards.</div>'}`}
+ w.innerHTML=`<div class="listtitlebar"><h2>${esc(l.name)}</h2><button id="deckExportBtn">Export deck</button><button id="renameListBtn">Edit details</button><button id="deleteListBtn">Delete</button></div>${l.description?`<div class="listdesc">${esc(l.description)}</div>`:''}${tags?`<div style="margin-bottom:12px">${tags}</div>`:''}${validationHTML(l)}<div class="liststats"><span><b>${comp.req}</b> entries</span><span><b>${comp.have}</b> owned</span><span><b>${comp.missing}</b> missing</span></div><div class="decklayout"><div>${addPanel(l)}<div id="deckRows">${body}</div></div><aside class="deckpreview"><img id="deckPreviewImg" alt=""><div class="previewname" id="deckPreviewName">Hover over a card</div><div class="previewmeta" id="deckPreviewMeta"></div><div class="previewowned" id="deckPreviewOwned">Click a card to pin it here.</div><div id="deckConfig"></div></aside></div>`;
+ }else{body=entryRows(l,l.entries||[]);w.innerHTML=`<div class="listtitlebar"><h2>${esc(l.name)}</h2><button id="renameListBtn">Edit details</button><button id="deleteListBtn">Delete</button></div>${l.description?`<div class="listdesc">${esc(l.description)}</div>`:''}${tags?`<div style="margin-bottom:12px">${tags}</div>`:''}<div class="liststats"><span><b>${comp.req}</b> required</span><span><b>${comp.have}</b> owned</span><span><b>${comp.missing}</b> missing</span><span><b>${comp.req?Math.round(comp.have/comp.req*100):0}%</b> complete</span></div><div id="listRows">${body||'<div style="color:var(--muted);padding:10px 4px">This list is empty.</div>'}</div>${addPanel(l)}`}
+ wireWorkspace(l);if(l.kind==='deck'&&pinnedDeckCard){const c=cardById(pinnedDeckCard);if(c&&(l.entries||[]).some(e=>e.cardId===c.id))previewDeckCard(c,l)}
+}
+const deckAddZoneChoice=new Map();
+function addPanel(l){const z=deckAddZoneChoice.get(l.id)||'auto';const zoneSelect=l.kind==='deck'?`<select id="deckAddZone"><option value="auto"${z==='auto'?' selected':''}>Main deck (automatic)</option><option value="collection"${z==='collection'?' selected':''}>Collection</option><option value="maybeboard"${z==='maybeboard'?' selected':''}>Maybeboard</option></select>`:'';return `<div class="addpanel"><div class="label">Add cards</div><div class="addcontrols"><input id="listCardSearch" placeholder="Search catalogue by card name...">${zoneSelect}</div><div class="addresults" id="listAddResults" hidden></div></div>`}
+let addResultIndex=-1;
+function wireWorkspace(l){if(l.kind==='deck'){const ex=$('deckExportBtn');if(ex)ex.onclick=()=>exportLedgerDeck(l)}$('deleteListBtn').onclick=async()=>{if(!confirm(`Delete ${l.kind==='deck'?'deck':'list'} “${l.name}”?`))return;await deleteListRecord(l.id);activeListId=null;await loadLists()};$('renameListBtn').onclick=()=>openCreateModal(l.kind,l);const rows=$('deckRows')||$('listRows');if(rows)rows.querySelectorAll('.entryrow').forEach(r=>{const id=r.dataset.cardId,zone=r.dataset.zone,c=cardById(id);r.querySelector('[data-act="minus"]').onclick=e=>{e.stopPropagation();l.kind==='deck'?changeDeckZone(l,c,zone,-1):changeEntry(l,id,-1)};r.querySelector('[data-act="plus"]').onclick=e=>{e.stopPropagation();l.kind==='deck'?changeDeckZone(l,c,zone,1):changeEntry(l,id,1)};r.querySelector('[data-act="remove"]').onclick=e=>{e.stopPropagation();removeEntry(l,id,r,zone)};if(l.kind==='deck'){r.onmouseenter=()=>previewDeckCard(c,l);r.onclick=e=>{if(!e.target.closest('button'))previewDeckCard(c,l)}}});const zoneSel=$('deckAddZone');if(zoneSel)zoneSel.onchange=()=>deckAddZoneChoice.set(l.id,zoneSel.value);const q=$('listCardSearch');q.oninput=()=>{addResultIndex=-1;renderAddResults(l,q.value)};q.onfocus=()=>renderAddResults(l,q.value);q.onkeydown=e=>handleAddSearchKeys(e,l)}
+async function changeEntry(l,cardId,delta){const e=l.entries.find(x=>x.cardId===cardId);if(!e)return;e.quantity=Math.max(1,(Number(e.quantity)||1)+delta);await saveList(l)}
+async function setDeckZoneQuantity(l,c,zone,value){if(!c)return;let e=deckEntry(l,c.id,zone),next=Math.max(0,Math.floor(Number(value)||0));if(zone==='avatar')next=Math.min(1,next);if(zone==='collection'){const current=Number(e?.quantity)||0,other=zoneQuantity(l,'collection')-current;next=Math.min(next,Math.max(0,10-other))}if(next>0&&!e)e=ensureDeckEntry(l,c,zone);if(!e)return;e.quantity=next;normalizeDeckEntry(e,c);if(next===0)l.entries=l.entries.filter(x=>x!==e);pinnedDeckCard=c.id;preloadDeckCardImage(c,e);await saveList(l)}
+async function changeDeckZone(l,c,zone,delta){const e=deckEntry(l,c.id,zone),current=Number(e?.quantity)||0;await setDeckZoneQuantity(l,c,zone,current+delta)}
+async function setDefaultPrint(l,c,zone,slug){const e=deckEntry(l,c.id,zone);if(!e)return;e.variantSlug=slug;e.preferredPrinting=slug;preloadDeckCardImage(c,e);await saveList(l)}
+async function setCopyPrint(l,c,zone,index,slug){const e=deckEntry(l,c.id,zone);if(!e)return;normalizeDeckEntry(e,c);e.printAssignments[index]=slug;preloadDeckCardImage(c,{variantSlug:slug});await saveList(l)}
+async function removeEntry(l,cardId,row,zone=null){l.entries=l.entries.filter(x=>!(x.cardId===cardId&&(!zone||x.zone===zone)));await saveList(l)}
+function updateAddResultHighlight(){const box=$('listAddResults');if(!box)return;const items=[...box.querySelectorAll('.addresult')];items.forEach((b,i)=>b.classList.toggle('keyboard-active',i===addResultIndex));if(addResultIndex>=0&&items[addResultIndex])items[addResultIndex].scrollIntoView({block:'nearest'})}
+function handleAddSearchKeys(e,l){const box=$('listAddResults');if(!box||box.hidden)return;const items=[...box.querySelectorAll('.addresult')];if(!items.length)return;if(e.key==='ArrowDown'){e.preventDefault();addResultIndex=(addResultIndex+1)%items.length;updateAddResultHighlight()}else if(e.key==='ArrowUp'){e.preventDefault();addResultIndex=addResultIndex<0?items.length-1:(addResultIndex-1+items.length)%items.length;updateAddResultHighlight()}else if(e.key==='Enter'){e.preventDefault();const target=items[addResultIndex>=0?addResultIndex:0];if(target)target.click()}else if(e.key==='Escape'){addResultIndex=-1;box.hidden=true}}
+function renderAddResults(l,query){const box=$('listAddResults');const q=normText(query);if(!q){addResultIndex=-1;box.hidden=true;box.innerHTML='';return}const matches=cards.filter(c=>normText(c.name).includes(q)).slice(0,30);box.hidden=false;box.innerHTML=matches.length?'':'<div style="padding:10px;color:var(--muted)">No cards found.</div>';for(const c of matches){const b=document.createElement('button');b.className='addresult';b.innerHTML=`<span>${esc(c.name)}</span><small>${[c.type,c.rarity].filter(Boolean).map(esc).join(' · ')}</small>`;b.onclick=()=>addCardToList(l,c);box.appendChild(b)}if(addResultIndex>=matches.length)addResultIndex=matches.length-1;updateAddResultHighlight()}
+function preloadDeckCardImage(c,entry){if(!c)return;const slug=entry?.variantSlug||entry?.preferredPrinting;const v=(slug&&c.variants.find(x=>x.slug===slug))||preferredVariant(c)||c.variants[0];if(!v)return;const img=new Image();img.src=imageUrl(v.slug)}
+function refocusAddSearch(){addResultIndex=-1;requestAnimationFrame(()=>{const q=$('listCardSearch');if(!q)return;q.value='';const box=$('listAddResults');if(box){box.hidden=true;box.innerHTML=''}q.focus()})}
+async function addCardToList(l,c){let zone='list';if(l.kind==='deck'){const sel=$('deckAddZone')?.value||deckAddZoneChoice.get(l.id)||'auto';deckAddZoneChoice.set(l.id,sel);zone=sel==='auto'?inferDeckZone(c):sel;await changeDeckZone(l,c,zone,1);refocusAddSearch();return}let e=l.entries.find(x=>x.cardId===c.id&&x.zone===zone);if(e)e.quantity++;else{e={cardId:c.id,quantity:1,zone,preferredPrinting:null};l.entries.push(e)}await saveList(l);refocusAddSearch()}
+const LEDGER_DECK_FORMAT='ledger-deck', LEDGER_DECK_SCHEMA=1;
+function safeFileName(name){return (name||'ledger-deck').replace(/[\\/:*?\"<>|]+/g,'-').replace(/\s+/g,' ').trim().slice(0,80)||'ledger-deck'}
+function serializeLedgerDeck(l){
+ if(!l||l.kind!=='deck')throw new Error('Only decks can be exported as Ledger deck files.');
+ const entries=(l.entries||[]).map(e=>{
+  const c=cardById(e.cardId);if(!c)return null;normalizeDeckEntry(e,c);
+  return {cardId:c.id,cardSlug:c.slug||null,cardName:c.name,zone:e.zone,quantity:Number(e.quantity)||0,variantSlug:e.variantSlug||null,printAssignments:[...(e.printAssignments||[])]};
+ }).filter(Boolean);
+ return {format:LEDGER_DECK_FORMAT,schemaVersion:LEDGER_DECK_SCHEMA,exportedAt:new Date().toISOString(),deck:{id:l.id,name:l.name,description:l.description||'',tags:[...(l.tags||[])],createdAt:l.createdAt||null,updatedAt:l.updatedAt||null,entries}};
+}
+function downloadJSON(obj,filename){const blob=new Blob([JSON.stringify(obj,null,2)+'\n'],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download=filename;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)}
+function exportLedgerDeck(l){downloadJSON(serializeLedgerDeck(l),`${safeFileName(l.name)}.ledger-deck.json`)}
+function resolveImportedDeckCard(raw){return cardById(raw.cardId)||cards.find(c=>c.slug&&c.slug===raw.cardSlug)||cards.find(c=>normText(c.name)===normText(raw.cardName))||null}
+function normalizeImportedZone(zone,c){if(['avatar','spellbook','atlas','collection','maybeboard'].includes(zone))return zone;return inferDeckZone(c)}
+async function importLedgerDeckFile(file){
+ const o=JSON.parse(await file.text());
+ if(o?.format!==LEDGER_DECK_FORMAT||o?.schemaVersion!==LEDGER_DECK_SCHEMA||!o.deck||!Array.isArray(o.deck.entries))throw new Error('Not a compatible Ledger deck file.');
+ const missing=[],entries=[];
+ for(const raw of o.deck.entries){const c=resolveImportedDeckCard(raw);if(!c){missing.push(raw.cardName||raw.cardSlug||raw.cardId||'Unknown card');continue}const zone=normalizeImportedZone(raw.zone,c),q=Math.max(0,Number(raw.quantity)||0);if(!q)continue;const fallback=(raw.variantSlug&&c.variants.some(v=>v.slug===raw.variantSlug))?raw.variantSlug:(preferredVariant(c)||c.variants[0])?.slug||null;const assignments=Array.from({length:q},(_,i)=>{const slug=raw.printAssignments?.[i];return slug&&c.variants.some(v=>v.slug===slug)?slug:fallback});entries.push({cardId:c.id,zone,quantity:q,variantSlug:fallback,preferredPrinting:fallback,printAssignments:assignments})}
+ if(missing.length)throw new Error(`Deck import stopped because ${missing.length} card${missing.length===1?' was':'s were'} not found in the current catalogue:\n\n${missing.slice(0,20).join('\n')}${missing.length>20?'\n…':''}`);
+ const now=new Date().toISOString(),wantedId=String(o.deck.id||'').trim(),collision=wantedId&&ledgerLists.some(x=>x.id===wantedId),id=(!wantedId||collision)?makeId():wantedId;
+ const l={id,kind:'deck',name:String(o.deck.name||'Imported Ledger Deck').slice(0,80),description:String(o.deck.description||'').slice(0,180),tags:Array.isArray(o.deck.tags)?o.deck.tags.map(String):[],entries,createdAt:o.deck.createdAt||now,updatedAt:now};
+ activeListId=l.id;await saveList(l);pinnedDeckCard=null;
+ if(collision)alert('Deck imported successfully. Its original local ID was already in use, so Ledger assigned the imported copy a new ID.');
+}
+function openCreateModal(kind,existing=null){createKind=kind;$('createListHeading').textContent=existing?`Edit ${kind}`:`Create ${kind}`;$('createListName').value=existing?.name||'';$('createListDescription').value=existing?.description||'';$('createListTags').value=(existing?.tags||[]).join(', ');$('createListConfirm').textContent=existing?'Save':'Create';$('createListConfirm').dataset.editId=existing?.id||'';$('createListModal').classList.add('open');setTimeout(()=>$('createListName').focus(),0)}
+function triggerDeckImport(){$('deckFileInput').value='';$('deckFileInput').click()}
+$('deckFileInput').onchange=async e=>{try{const f=e.target.files?.[0];if(f)await importLedgerDeckFile(f)}catch(err){alert(err.message)}};
+$('globalDeckImportBtn').onclick=triggerDeckImport;
+$('newListBtn').onclick=()=>openCreateModal('list');$('newDeckBtn').onclick=()=>openCreateModal('deck');$('createListCancel').onclick=()=>{$('createListModal').classList.remove('open')};$('createListConfirm').onclick=async()=>{const name=$('createListName').value.trim();if(!name)return alert('Give the list a name first.');const editId=$('createListConfirm').dataset.editId;let l=ledgerLists.find(x=>x.id===editId);if(l){l.name=name;l.description=$('createListDescription').value.trim();l.tags=$('createListTags').value.split(',').map(x=>x.trim()).filter(Boolean)}else{const now=new Date().toISOString();l={id:makeId(),kind:createKind,name,description:$('createListDescription').value.trim(),tags:$('createListTags').value.split(',').map(x=>x.trim()).filter(Boolean),entries:[],createdAt:now,updatedAt:now}}activeListId=l.id;await saveList(l);$('createListModal').classList.remove('open')};
+$('createListModal').onclick=e=>{if(e.target===$('createListModal'))$('createListModal').classList.remove('open')};
+document.querySelectorAll('.viewtab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.viewtab').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.appview').forEach(v=>v.hidden=v.id!==b.dataset.view);if(b.dataset.view==='listsView')loadLists()});
 
 (async()=>{try{
  initQuickCollapse();
  initBaseCollapse();
  await openDB();meta=(await getMeta())||meta;await reloadInventory();
  const persistent=await ensurePersistentStorage();
- await loadCatalogue();refreshStats();updateStatus();
+ await loadCatalogue();refreshStats();updateStatus();await loadLists();
  const restoreScroll=restoreUIState();applyFilters();
  requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,restoreScroll||0)));
  if(persistent)$('saved').title='Browser persistent storage granted';
