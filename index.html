@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Ledger · Prototype v11.4</title>
+<title>Ledger · Prototype v11.8</title>
 <style>
 :root{--bg:#111315;--panel:#191c20;--panel2:#20242a;--text:#eee8dc;--muted:#aaa49a;--line:#34383e;--accent:#c6a15b;--warn:#d2a34a;--ok:#77ad78}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
@@ -26,7 +26,7 @@ main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border
 .card{background:var(--panel);border:1px solid var(--line);border-radius:11px;overflow:hidden}
 .art{aspect-ratio:5/7;display:flex;align-items:center;justify-content:center;position:relative;padding:8px 8px 0}
 .art img{width:100%;height:100%;object-fit:contain;display:block;border-radius:0;clip-path:none}.art .placeholder{color:#777;padding:18px;text-align:center;font-size:12px}
-.info{padding:12px}.name{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.info{padding:12px}.name{font-weight:700;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.nameprice{display:flex;align-items:baseline;gap:10px}.nameprice .name{flex:1;min-width:0}.cardprice{margin-left:auto;color:var(--accent);font-variant-numeric:tabular-nums;font-size:13px;white-space:nowrap;cursor:help}.cardprice.unknown{color:var(--muted)}
 .meta{font-size:12px;color:var(--muted);margin:3px 0 10px}.label{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:4px}
 .variant{width:100%;margin-bottom:9px}.qtyrow{display:flex;align-items:center;gap:7px}.qtyrow button{width:34px;height:34px;padding:0;font-size:18px}.qtyrow input{width:55px;text-align:center;padding:7px}
 .total{margin-left:auto;font-size:12px;color:var(--muted)}.empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:70px 20px}
@@ -63,6 +63,8 @@ main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border
  #baseFilters.mobile-collapsed,.quickfilters.mobile-collapsed{display:none}
 }
 
+/* Price history */
+.pricepopover{position:fixed;z-index:1200;width:340px;max-width:calc(100vw - 24px);background:#17191c;border:1px solid var(--line);border-radius:11px;padding:12px;box-shadow:0 16px 45px #000b;pointer-events:auto;display:none}.pricepopover.open{display:block}.pricepophead{display:flex;gap:10px;align-items:baseline}.pricepophead strong{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pricepopvalue{color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums}.pricepopmeta,.pricepopfoot{font-size:11px;color:var(--muted)}.pricechart{display:block;width:100%;height:150px;margin:9px 0 5px}.priceranges{display:flex;gap:5px;margin-top:8px;pointer-events:auto}.priceranges button{padding:4px 9px;font-size:11px}.priceranges button.active{border-color:var(--accent);color:#f3dfb7}.pricepoploading{height:150px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px}
 /* Lists & Decks */
 .viewtabs{display:flex;gap:8px;margin-top:12px}.viewtab.active{border-color:var(--accent);color:#f3dfb7;background:#27241e}
 .appview[hidden]{display:none!important}.libraryhead{display:flex;align-items:center;gap:10px;margin-bottom:16px}.libraryhead h2{margin:0 auto 0 0;font:600 22px Georgia,serif}
@@ -70,7 +72,7 @@ main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border
 .listnav{padding:10px;height:max-content}.listnavitem{width:100%;text-align:left;padding:11px;margin:3px 0;background:transparent}.listnavitem.active{border-color:var(--accent);background:#27241e}.listnavitem small{display:block;color:var(--muted);margin-top:2px}
 .listworkspace{padding:18px;min-width:0}.listtitlebar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:14px}.listtitlebar h2{margin:0 auto 0 0;font:600 24px Georgia,serif}.listdesc{color:var(--muted);margin:-4px 0 16px}
 .liststats{display:flex;gap:18px;flex-wrap:wrap;margin-bottom:14px;color:var(--muted)}.liststats b{color:var(--text)}
-.entryrow{display:grid;grid-template-columns:50px minmax(0,1fr) 72px 86px 34px;gap:8px;align-items:center;padding:8px 4px;border-bottom:1px solid #2b2e33}.entryrow:hover{background:#1e2125}.entryqty{display:flex;gap:4px;align-items:center}.entryqty button{width:26px;height:26px;padding:0}.entryqty span{min-width:18px;text-align:center}.ownedok{color:#9cc49d}.ownedmiss{color:#d7a0a0}.entryremove{width:30px;height:30px;padding:0}
+.entryrow{display:grid;grid-template-columns:50px minmax(0,1fr) 72px 86px 34px;gap:8px;align-items:center;padding:8px 4px;border-bottom:1px solid #2b2e33}.entryrow:hover{background:#1e2125}.entryqty{display:flex;gap:4px;align-items:center}.entryqty button{width:26px;height:26px;padding:0}.entryqty span{min-width:18px;text-align:center}.entryname{display:flex;align-items:baseline;gap:8px;min-width:0}.entryname .entrylabel{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.entryname .cardprice{margin-left:auto}.ownedok{color:#9cc49d}.ownedmiss{color:#d7a0a0}.entryremove{width:30px;height:30px;padding:0}
 .sectionhead{margin:18px 0 4px;color:var(--accent);font-size:12px;font-weight:700;letter-spacing:.09em;text-transform:uppercase}.typehead{margin:12px 0 2px;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.07em;text-transform:uppercase}
 .addpanel{margin-top:20px;border-top:1px solid var(--line);padding-top:16px}.addcontrols{display:grid;grid-template-columns:minmax(180px,1fr) 180px;gap:8px}.addresults{max-height:280px;overflow:auto;margin-top:8px;border:1px solid var(--line);border-radius:8px}.addresult{display:flex;align-items:center;gap:10px;width:100%;border:0;border-bottom:1px solid var(--line);border-radius:0;text-align:left;background:#17191c}.addresult:last-child{border-bottom:0}.addresult.keyboard-active{background:#24282e;outline:1px solid var(--accent);outline-offset:-1px}.addresult span:first-child{flex:1}.addresult small{color:var(--muted)}
 .decklayout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,390px);gap:20px}.deckpreview{position:sticky;top:calc(var(--ledger-header-height,0px) + 12px);height:max-content;max-height:calc(100vh - var(--ledger-header-height,0px) - 24px);overflow-y:auto;overscroll-behavior:contain;padding:14px;text-align:center;scrollbar-width:thin}.deckpreview img{display:block;width:100%;max-height:min(52vh,620px);object-fit:contain;cursor:zoom-in}.deckpreview img.site{transform:none;margin:0}.previewname{font-weight:700;font-size:17px;margin-top:8px}.previewmeta,.previewowned{color:var(--muted);font-size:13px;margin-top:4px}.deckconfig{margin-top:14px;text-align:left;border-top:1px solid var(--line);padding-top:12px}.zonecontrols{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;margin:7px 0}.zonecontrols .entryqty{justify-content:flex-end}.zoneqtyinput{width:54px;text-align:center;padding:5px 4px}.printblock{margin-top:12px}.printlabel{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:9px 0 5px}.printselect{width:100%;margin-bottom:5px}.copyprint{display:grid;grid-template-columns:26px 1fr;gap:6px;align-items:center;margin:4px 0}.copyprint span{color:var(--muted);font-size:12px;text-align:right}.validation{border:1px solid var(--line);border-radius:9px;padding:10px 12px;margin-bottom:14px}.validation.ok{border-color:#426348}.validation.warn{border-color:#735e3d}.validationline{display:flex;justify-content:space-between;gap:12px;font-size:13px;margin:3px 0}.validation .bad{color:#d7a0a0}.validation .good{color:#9cc49d}
@@ -186,6 +188,10 @@ main{padding-top:20px}.notice{background:#1b1d1f;border:1px solid #51452f;border
 const CATALOGUE_URL='https://data.sorcery.no/cards.json';
 const CATALOGUE_META_URL='https://data.sorcery.no/cards-meta.json';
 const IMAGE_BASE='https://d27a44hjr9gen3.cloudfront.net/cards/';
+const PRICE_URL='https://data.sorcery.no/prices.json';
+const PRICE_HISTORY_BASE='https://data.sorcery.no/prices-history';
+const PRICE_HISTORY_START='2026-09-12';
+let currentPrices=new Map(),priceSnapshots=new Map(),activePriceHover=null;
 const DB_NAME='sorcery-collection-prototype', DB_VERSION=4;
 let db,cards=[],filtered=[],rendered=0,inv=new Map(),catalogueMeta=null;
 let meta={revision:0,baselineRevision:0,lastModified:null,lastExported:null};
@@ -262,6 +268,45 @@ function normalize(data){
   };
  });
 }
+function normalizePricePayload(data){
+ const out=new Map();
+ if(data&&data.prices&&typeof data.prices==='object'&&!Array.isArray(data.prices)){
+  for(const [slug,p] of Object.entries(data.prices))if(p&&typeof p.market==='number')out.set(slug,{market:p.market,low:typeof p.low==='number'?p.low:null});
+  return out;
+ }
+ if(Array.isArray(data))for(const card of data)for(const printing of card?.printings||[]){const p=printing?.price;if(printing?.slug&&p&&typeof p.market==='number')out.set(printing.slug,{market:p.market,low:typeof p.low==='number'?p.low:null})}
+ return out;
+}
+async function loadCurrentPrices(){
+ try{const r=await fetch(PRICE_URL,{cache:'no-store'});if(!r.ok)throw new Error(`HTTP ${r.status}`);currentPrices=normalizePricePayload(await r.json())}catch(err){console.warn('Current prices unavailable.',err);currentPrices=new Map()}
+}
+function priceForSlug(slug){return slug?currentPrices.get(slug)||null:null}
+function money(v){return typeof v==='number'&&Number.isFinite(v)?new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(v):'—'}
+function priceHTML(slug){const p=priceForSlug(slug);return `<span class="cardprice${p?'':' unknown'}" data-price-slug="${esc(slug||'')}" tabindex="0">${p?money(p.market):'—'}</span>`}
+function isoDate(d){return d.toISOString().slice(0,10)}
+function dateRange(start,end){const a=[];for(let d=new Date(start+'T00:00:00Z'),e=new Date(end+'T00:00:00Z');d<=e;d.setUTCDate(d.getUTCDate()+1))a.push(isoDate(d));return a}
+function isoWeekKey(d){const x=new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth(),d.getUTCDate()));x.setUTCDate(x.getUTCDate()+4-(x.getUTCDay()||7));const y=new Date(Date.UTC(x.getUTCFullYear(),0,1));return `${x.getUTCFullYear()}-W${String(Math.ceil((((x-y)/86400000)+1)/7)).padStart(2,'0')}`}
+function weeklyKeys(){const keys=[],seen=new Set();for(let i=51;i>=0;i--){const d=new Date();d.setUTCHours(0,0,0,0);d.setUTCDate(d.getUTCDate()-i*7);const k=isoWeekKey(d);if(!seen.has(k)){seen.add(k);keys.push(k)}}return keys}
+function monthlyKeys(){const keys=[],start=new Date(PRICE_HISTORY_START+'T00:00:00Z'),now=new Date();for(let y=start.getUTCFullYear(),m=start.getUTCMonth();y<now.getUTCFullYear()||(y===now.getUTCFullYear()&&m<=now.getUTCMonth());){keys.push(`${y}-${String(m+1).padStart(2,'0')}`);m++;if(m===12){m=0;y++}}return keys}
+async function fetchPriceSnapshot(kind,key){const ck=`${kind}/${key}`;if(priceSnapshots.has(ck))return priceSnapshots.get(ck);try{const r=await fetch(`${PRICE_HISTORY_BASE}/${kind}/${key}.json`);if(!r.ok){priceSnapshots.set(ck,null);return null}const data=await r.json();priceSnapshots.set(ck,data);return data}catch{priceSnapshots.set(ck,null);return null}}
+async function historyForSlug(slug,range='1M'){
+ let kind,keys;
+ if(range==='1Y'){kind='weekly';keys=weeklyKeys()}
+ else if(range==='ALL'){kind='monthly';keys=monthlyKeys()}
+ else{kind='daily';const today=isoDate(new Date()),earliest=new Date();earliest.setUTCDate(earliest.getUTCDate()-30);const start=isoDate(earliest)>PRICE_HISTORY_START?isoDate(earliest):PRICE_HISTORY_START;keys=dateRange(start,today)}
+ const snaps=await Promise.all(keys.map(k=>fetchPriceSnapshot(kind,k)));
+ const points=[];
+ for(let i=0;i<snaps.length;i++){const s=snaps[i];if(!s?.prices?.[slug])continue;const p=s.prices[slug],stats=kind==='daily'?{average:p.market,minimum:p.low,maximum:null,observations:typeof p.market==='number'?1:0}:p.market;if(!stats||typeof stats.average!=='number')continue;points.push({label:kind==='daily'?(s.date||keys[i]):(s.period||keys[i]),value:stats.average,low:stats.minimum,high:stats.maximum,observations:stats.observations||1})}
+ return {kind,points};
+}
+function ensurePricePopover(){let pop=document.getElementById('pricePopover');if(pop)return pop;pop=document.createElement('div');pop.id='pricePopover';pop.className='pricepopover';document.body.appendChild(pop);return pop}
+function positionPricePopover(anchor,pop){const r=anchor.getBoundingClientRect(),w=340,h=245;let left=Math.min(window.innerWidth-w-12,Math.max(12,r.right-w)),top=r.bottom+8;if(top+h>window.innerHeight)top=Math.max(12,r.top-h-8);pop.style.left=left+'px';pop.style.top=top+'px'}
+function drawPriceChart(canvas,points){const dpr=window.devicePixelRatio||1,w=canvas.clientWidth||316,h=150;canvas.width=w*dpr;canvas.height=h*dpr;const ctx=canvas.getContext('2d');ctx.scale(dpr,dpr);ctx.clearRect(0,0,w,h);if(!points.length){ctx.fillStyle='#aaa49a';ctx.font='12px system-ui';ctx.textAlign='center';ctx.fillText('No historical observations yet.',w/2,h/2);return}const vals=points.map(p=>p.value),min=Math.min(...vals),max=Math.max(...vals),pad=Math.max((max-min)*.18,max*.015,.01),lo=min-pad,hi=max+pad,L=10,R=10,T=12,B=24;ctx.strokeStyle='#34383e';ctx.lineWidth=1;for(let i=0;i<3;i++){const y=T+(h-T-B)*i/2;ctx.beginPath();ctx.moveTo(L,y);ctx.lineTo(w-R,y);ctx.stroke()}ctx.strokeStyle='#c6a15b';ctx.lineWidth=2;ctx.beginPath();points.forEach((p,i)=>{const x=points.length===1?w/2:L+(w-L-R)*i/(points.length-1),y=T+(hi-p.value)/(hi-lo)*(h-T-B);i?ctx.lineTo(x,y):ctx.moveTo(x,y)});ctx.stroke();ctx.fillStyle='#c6a15b';points.forEach((p,i)=>{const x=points.length===1?w/2:L+(w-L-R)*i/(points.length-1),y=T+(hi-p.value)/(hi-lo)*(h-T-B);ctx.beginPath();ctx.arc(x,y,2.5,0,Math.PI*2);ctx.fill()});ctx.fillStyle='#aaa49a';ctx.font='10px system-ui';ctx.textAlign='left';ctx.fillText(points[0].label,L,h-6);ctx.textAlign='right';ctx.fillText(points.at(-1).label,w-R,h-6)}
+async function renderPricePopover(anchor,range='1M'){
+ const slug=anchor.dataset.priceSlug;if(!slug)return;activePriceHover={anchor,slug,range};const pop=ensurePricePopover(),p=priceForSlug(slug),v=cards.flatMap(c=>c.variants.map(v=>({c,v}))).find(x=>x.v.slug===slug),name=v?.c?.name||slug,meta=v?.v?[v.v.set,v.v.finish].filter(Boolean).join(' · '):'';pop.innerHTML=`<div class="pricepophead"><strong>${esc(name)}</strong><span class="pricepopvalue">${money(p?.market)}</span></div><div class="pricepopmeta">${esc(meta)}${p?.low!=null?` · Low ${money(p.low)}`:''}</div><div class="pricepoploading">Loading price history…</div><div class="priceranges"><button data-range="1M" class="${range==='1M'?'active':''}">1M</button><button data-range="1Y" class="${range==='1Y'?'active':''}">1Y</button><button data-range="ALL" class="${range==='ALL'?'active':''}">All</button></div><div class="pricepopfoot">TCGPlayer · USD</div>`;pop.classList.add('open');positionPricePopover(anchor,pop);pop.querySelectorAll('[data-range]').forEach(b=>b.onmousedown=e=>{e.preventDefault();renderPricePopover(anchor,b.dataset.range)});const hist=await historyForSlug(slug,range);if(!activePriceHover||activePriceHover.anchor!==anchor||activePriceHover.range!==range)return;const holder=pop.querySelector('.pricepoploading');holder.outerHTML='<canvas class="pricechart"></canvas>';drawPriceChart(pop.querySelector('canvas'),hist.points);const obs=hist.points.reduce((n,x)=>n+(x.observations||0),0);pop.querySelector('.pricepopfoot').textContent=`${hist.points.length} point${hist.points.length===1?'':'s'} · ${obs} observation${obs===1?'':'s'} · TCGPlayer · USD`;positionPricePopover(anchor,pop)}
+function hidePricePopover(){activePriceHover=null;const p=document.getElementById('pricePopover');if(p)p.classList.remove('open')}
+document.addEventListener('mouseover',e=>{const a=e.target.closest?.('.cardprice');if(a&&a.dataset.priceSlug)renderPricePopover(a,'1M')});document.addEventListener('mouseout',e=>{const a=e.target.closest?.('.cardprice');if(a&&!a.contains(e.relatedTarget)&&!e.relatedTarget?.closest?.('#pricePopover'))hidePricePopover()});document.addEventListener('mouseout',e=>{if(e.target.closest?.('#pricePopover')&&!e.relatedTarget?.closest?.('#pricePopover')&&!e.relatedTarget?.closest?.('.cardprice'))hidePricePopover()});document.addEventListener('focusin',e=>{const a=e.target.closest?.('.cardprice');if(a&&a.dataset.priceSlug)renderPricePopover(a,'1M')});document.addEventListener('focusout',e=>{if(e.target.closest?.('.cardprice'))hidePricePopover()});
+
 function imageUrl(slug){return IMAGE_BASE+encodeURIComponent(slug)+'.png'}
 function variantLabel(v){return `${v.set} · ${v.finish}${(inv.get(v.slug)||0)>0?` (${inv.get(v.slug)} owned)`:''}`}
 function qualifyingVariants(c){
@@ -488,7 +533,7 @@ function applyFilters(){
  const ownership=$('ownershipFilter').value,sort=$('sortBy').value;
  filtered=cards.filter(c=>{
   const variants=c.variants.filter(v=>(!sf||v.set===sf)&&(!ff||v.finish===ff));
-  return (!q||c.name.toLowerCase().includes(q)||c.variants.some(v=>v.slug.toLowerCase().includes(q)))
+  return (!q||c.name.toLowerCase().includes(q)||(c.rules||'').toLowerCase().includes(q)||c.variants.some(v=>v.slug.toLowerCase().includes(q)))
    &&(!rf||c.rarity===rf)&&variants.length>0
    &&tierPass(c.type,'type')&&tierPass(c.rarity,'rarity')&&elementPass(c)
    &&((ownership==='all')||(ownership==='owned'&&c.variants.some(v=>(inv.get(v.slug)||0)>0))||(ownership==='unowned'&&!c.variants.some(v=>(inv.get(v.slug)||0)>0)));
@@ -526,7 +571,7 @@ function renderMore(){
   let selected=preferredVariant(c), total=c.variants.reduce((n,v)=>n+(inv.get(v.slug)||0),0);
   const d=document.createElement('article');d.className='card';
   d.innerHTML=`<div class="art"><img loading="lazy" alt=""><div class="placeholder">Card image unavailable</div></div>
-   <div class="info"><div class="name" title="${esc(c.name)}">${esc(c.name)}</div><div class="meta">${[c.rarity,c.type].filter(Boolean).map(esc).join(' · ')}</div>
+   <div class="info"><div class="nameprice"><div class="name" title="${esc(c.name)}">${esc(c.name)}</div><span class="pricehost"></span></div><div class="meta">${[c.rarity,c.type].filter(Boolean).map(esc).join(' · ')}</div>
    <div class="label">Variant</div><select class="variant"></select>
    <div class="label">Owned</div><div class="qtyrow"><button class="minus">−</button><input inputmode="numeric" type="number" min="0" step="1"><button class="plus">+</button><span class="total">${total} total</span></div></div>`;
   const sel=d.querySelector('.variant'),img=d.querySelector('img'),ph=d.querySelector('.placeholder'),input=d.querySelector('.qtyrow input');
@@ -536,7 +581,7 @@ function renderMore(){
   sel.value=selected.slug;
   function show(v){
    selected=v;input.value=inv.get(v.slug)||0;
-   img.style.display='block';ph.style.display='none';img.src=imageUrl(v.slug);
+   img.style.display='block';ph.style.display='none';img.src=imageUrl(v.slug);const priceHost=d.querySelector('.pricehost');if(priceHost)priceHost.innerHTML=priceHTML(v.slug);
    img.onload=()=>{ph.style.display='none';img.style.display='block'};
    img.onerror=()=>{img.style.display='none';ph.style.display='block'};
   }
@@ -806,7 +851,7 @@ function renderDeckConfig(c,l){const host=$('deckConfig');if(!host)return;const 
  host.querySelectorAll('[data-zone-minus]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();changeDeckZone(l,c,b.dataset.zoneMinus,-1)}));host.querySelectorAll('[data-zone-plus]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();changeDeckZone(l,c,b.dataset.zonePlus,1)}));host.querySelectorAll('[data-zone-qty]').forEach(inp=>inp.onchange=()=>setDeckZoneQuantity(l,c,inp.dataset.zoneQty,inp.value));
  const dp=$('defaultPrint');if(dp&&active)dp.onchange=()=>setDefaultPrint(l,c,active.zone,dp.value);host.querySelectorAll('[data-copy-print]').forEach(sel=>sel.onchange=()=>setCopyPrint(l,c,active.zone,Number(sel.dataset.copyPrint),sel.value));
 }
-function entryRows(l,entries){let html='',lastType=null;for(const e of sortedEntries(entries)){const c=cardById(e.cardId);if(!c)continue;if(c.type!==lastType){lastType=c.type;html+=`<div class="typehead">${esc(c.type||'Other')}</div>`}const o=ownedCanonical(c),q=Number(e.quantity)||0;html+=`<div class="entryrow" data-card-id="${esc(c.id)}" data-zone="${esc(e.zone)}"><div class="entryqty"><button data-act="minus">−</button><span>${q}</span><button data-act="plus">+</button></div><div class="entryname">${esc(c.name)}</div><div>${esc(c.rarity||'')}</div><div class="${o>=q?'ownedok':'ownedmiss'}">${Math.min(o,q)}/${q}${o<q?` −${q-o}`:' ✓'}</div><button class="entryremove" data-act="remove" title="Remove">×</button></div>`}return html}
+function entryRows(l,entries){let html='',lastType=null;for(const e of sortedEntries(entries)){const c=cardById(e.cardId);if(!c)continue;if(c.type!==lastType){lastType=c.type;html+=`<div class="typehead">${esc(c.type||'Other')}</div>`}const o=ownedCanonical(c),q=Number(e.quantity)||0;html+=`<div class="entryrow" data-card-id="${esc(c.id)}" data-zone="${esc(e.zone)}"><div class="entryqty"><button data-act="minus">−</button><span>${q}</span><button data-act="plus">+</button></div><div class="entryname"><span class="entrylabel">${esc(c.name)}</span>${priceHTML((e.variantSlug||e.preferredPrinting||preferredVariant(c)?.slug||''))}</div><div>${esc(c.rarity||'')}</div><div class="${o>=q?'ownedok':'ownedmiss'}">${Math.min(o,q)}/${q}${o<q?` −${q-o}`:' ✓'}</div><button class="entryremove" data-act="remove" title="Remove">×</button></div>`}return html}
 function renderListWorkspace(){const w=$('listWorkspace');if(!w)return;const l=ledgerLists.find(x=>x.id===activeListId);if(!l){w.innerHTML=`<div class="emptyworkspace"><div style="font-size:18px;color:var(--text);font-weight:700;margin-bottom:8px">${ledgerLists.length?'Select a list or deck':'No lists or decks yet'}</div><div style="margin-bottom:18px">${ledgerLists.length?'Choose one from the left, or create something new.':'Create something new or restore an exported Ledger deck.'}</div><button id="emptyDeckImportBtn">Import deck</button></div>`;const b=$('emptyDeckImportBtn');if(b)b.onclick=triggerDeckImport;return}const comp=listCompletion(l);const tags=(l.tags||[]).map(t=>`<span class="chip">${esc(t)}</span>`).join(' ');let body='';if(l.kind==='deck'){
  const zones=['avatar','spellbook','atlas','collection','maybeboard'];for(const z of zones){const es=(l.entries||[]).filter(e=>e.zone===z);body+=`<div class="sectionhead">${deckZoneLabel(z)} · ${es.reduce((n,e)=>n+e.quantity,0)}</div>${es.length?entryRows(l,es):'<div style="color:var(--muted);padding:5px 4px">No cards.</div>'}`}
  w.innerHTML=`<div class="listtitlebar"><h2>${esc(l.name)}</h2><button id="deckExportBtn">Export deck</button><button id="renameListBtn">Edit details</button><button id="deleteListBtn">Delete</button></div>${l.description?`<div class="listdesc">${esc(l.description)}</div>`:''}${tags?`<div style="margin-bottom:12px">${tags}</div>`:''}${validationHTML(l)}<div class="liststats"><span><b>${comp.req}</b> entries</span><span><b>${comp.have}</b> owned</span><span><b>${comp.missing}</b> missing</span></div><div class="decklayout"><div>${addPanel(l)}<div id="deckRows">${body}</div></div><aside class="deckpreview"><img id="deckPreviewImg" alt=""><div class="previewname" id="deckPreviewName">Hover over a card</div><div class="previewmeta" id="deckPreviewMeta"></div><div class="previewowned" id="deckPreviewOwned">Click a card to pin it here.</div><div id="deckConfig"></div></aside></div>`;
@@ -814,7 +859,7 @@ function renderListWorkspace(){const w=$('listWorkspace');if(!w)return;const l=l
  wireWorkspace(l);if(l.kind==='deck'&&pinnedDeckCard){const c=cardById(pinnedDeckCard);if(c&&(l.entries||[]).some(e=>e.cardId===c.id))previewDeckCard(c,l)}
 }
 const deckAddZoneChoice=new Map();
-function addPanel(l){const z=deckAddZoneChoice.get(l.id)||'auto';const zoneSelect=l.kind==='deck'?`<select id="deckAddZone"><option value="auto"${z==='auto'?' selected':''}>Main deck (automatic)</option><option value="collection"${z==='collection'?' selected':''}>Collection</option><option value="maybeboard"${z==='maybeboard'?' selected':''}>Maybeboard</option></select>`:'';return `<div class="addpanel"><div class="label">Add cards</div><div class="addcontrols"><input id="listCardSearch" placeholder="Search catalogue by card name...">${zoneSelect}</div><div class="addresults" id="listAddResults" hidden></div></div>`}
+function addPanel(l){const z=deckAddZoneChoice.get(l.id)||'auto';const zoneSelect=l.kind==='deck'?`<select id="deckAddZone"><option value="auto"${z==='auto'?' selected':''}>Main deck (automatic)</option><option value="collection"${z==='collection'?' selected':''}>Collection</option><option value="maybeboard"${z==='maybeboard'?' selected':''}>Maybeboard</option></select>`:'';return `<div class="addpanel"><div class="label">Add cards</div><div class="addcontrols"><input id="listCardSearch" placeholder="Search catalogue by card name or rules text...">${zoneSelect}</div><div class="addresults" id="listAddResults" hidden></div></div>`}
 let addResultIndex=-1;
 function wireWorkspace(l){if(l.kind==='deck'){const ex=$('deckExportBtn');if(ex)ex.onclick=()=>exportLedgerDeck(l)}$('deleteListBtn').onclick=async()=>{if(!confirm(`Delete ${l.kind==='deck'?'deck':'list'} “${l.name}”?`))return;await deleteListRecord(l.id);activeListId=null;await loadLists()};$('renameListBtn').onclick=()=>openCreateModal(l.kind,l);const rows=$('deckRows')||$('listRows');if(rows)rows.querySelectorAll('.entryrow').forEach(r=>{const id=r.dataset.cardId,zone=r.dataset.zone,c=cardById(id);r.querySelector('[data-act="minus"]').onclick=e=>{e.stopPropagation();l.kind==='deck'?changeDeckZone(l,c,zone,-1):changeEntry(l,id,-1)};r.querySelector('[data-act="plus"]').onclick=e=>{e.stopPropagation();l.kind==='deck'?changeDeckZone(l,c,zone,1):changeEntry(l,id,1)};r.querySelector('[data-act="remove"]').onclick=e=>{e.stopPropagation();removeEntry(l,id,r,zone)};if(l.kind==='deck'){r.onmouseenter=()=>previewDeckCard(c,l);r.onclick=e=>{if(!e.target.closest('button'))previewDeckCard(c,l)}}});const zoneSel=$('deckAddZone');if(zoneSel)zoneSel.onchange=()=>deckAddZoneChoice.set(l.id,zoneSel.value);const q=$('listCardSearch');q.oninput=()=>{addResultIndex=-1;renderAddResults(l,q.value)};q.onfocus=()=>renderAddResults(l,q.value);q.onkeydown=e=>handleAddSearchKeys(e,l)}
 async function changeEntry(l,cardId,delta){const e=l.entries.find(x=>x.cardId===cardId);if(!e)return;e.quantity=Math.max(1,(Number(e.quantity)||1)+delta);await saveList(l)}
@@ -825,7 +870,7 @@ async function setCopyPrint(l,c,zone,index,slug){const e=deckEntry(l,c.id,zone);
 async function removeEntry(l,cardId,row,zone=null){l.entries=l.entries.filter(x=>!(x.cardId===cardId&&(!zone||x.zone===zone)));await saveList(l)}
 function updateAddResultHighlight(){const box=$('listAddResults');if(!box)return;const items=[...box.querySelectorAll('.addresult')];items.forEach((b,i)=>b.classList.toggle('keyboard-active',i===addResultIndex));if(addResultIndex>=0&&items[addResultIndex])items[addResultIndex].scrollIntoView({block:'nearest'})}
 function handleAddSearchKeys(e,l){const box=$('listAddResults');if(!box||box.hidden)return;const items=[...box.querySelectorAll('.addresult')];if(!items.length)return;if(e.key==='ArrowDown'){e.preventDefault();addResultIndex=(addResultIndex+1)%items.length;updateAddResultHighlight()}else if(e.key==='ArrowUp'){e.preventDefault();addResultIndex=addResultIndex<0?items.length-1:(addResultIndex-1+items.length)%items.length;updateAddResultHighlight()}else if(e.key==='Enter'){e.preventDefault();const target=items[addResultIndex>=0?addResultIndex:0];if(target)target.click()}else if(e.key==='Escape'){addResultIndex=-1;box.hidden=true}}
-function renderAddResults(l,query){const box=$('listAddResults');const q=normText(query);if(!q){addResultIndex=-1;box.hidden=true;box.innerHTML='';return}const matches=cards.filter(c=>normText(c.name).includes(q)).slice(0,30);box.hidden=false;box.innerHTML=matches.length?'':'<div style="padding:10px;color:var(--muted)">No cards found.</div>';for(const c of matches){const b=document.createElement('button');b.className='addresult';b.innerHTML=`<span>${esc(c.name)}</span><small>${[c.type,c.rarity].filter(Boolean).map(esc).join(' · ')}</small>`;b.onclick=()=>addCardToList(l,c);box.appendChild(b)}if(addResultIndex>=matches.length)addResultIndex=matches.length-1;updateAddResultHighlight()}
+function renderAddResults(l,query){const box=$('listAddResults');const q=normText(query);if(!q){addResultIndex=-1;box.hidden=true;box.innerHTML='';return}const matches=cards.filter(c=>normText(c.name).includes(q)||normText(c.rules||'').includes(q)).sort((a,b)=>{const an=normText(a.name).includes(q),bn=normText(b.name).includes(q);return Number(bn)-Number(an)||a.name.localeCompare(b.name)}).slice(0,30);box.hidden=false;box.innerHTML=matches.length?'':'<div style="padding:10px;color:var(--muted)">No cards found.</div>';for(const c of matches){const b=document.createElement('button');b.className='addresult';b.innerHTML=`<span>${esc(c.name)}</span><small>${[c.type,c.rarity].filter(Boolean).map(esc).join(' · ')}</small>`;b.onclick=()=>addCardToList(l,c);box.appendChild(b)}if(addResultIndex>=matches.length)addResultIndex=matches.length-1;updateAddResultHighlight()}
 function preloadDeckCardImage(c,entry){if(!c)return;const slug=entry?.variantSlug||entry?.preferredPrinting;const v=(slug&&c.variants.find(x=>x.slug===slug))||preferredVariant(c)||c.variants[0];if(!v)return;const img=new Image();img.src=imageUrl(v.slug)}
 function refocusAddSearch(){addResultIndex=-1;requestAnimationFrame(()=>{const q=$('listCardSearch');if(!q)return;q.value='';const box=$('listAddResults');if(box){box.hidden=true;box.innerHTML=''}q.focus()})}
 async function addCardToList(l,c){let zone='list';if(l.kind==='deck'){const sel=$('deckAddZone')?.value||deckAddZoneChoice.get(l.id)||'auto';deckAddZoneChoice.set(l.id,sel);zone=sel==='auto'?inferDeckZone(c):sel;await changeDeckZone(l,c,zone,1);refocusAddSearch();return}let e=l.entries.find(x=>x.cardId===c.id&&x.zone===zone);if(e)e.quantity++;else{e={cardId:c.id,quantity:1,zone,preferredPrinting:null};l.entries.push(e)}await saveList(l);refocusAddSearch()}
@@ -867,7 +912,7 @@ document.querySelectorAll('.viewtab').forEach(b=>b.onclick=()=>{document.querySe
  initBaseCollapse();
  await openDB();meta=(await getMeta())||meta;await reloadInventory();
  const persistent=await ensurePersistentStorage();
- await loadCatalogue();refreshStats();updateStatus();await loadLists();
+ await loadCatalogue();await loadCurrentPrices();refreshStats();updateStatus();await loadLists();
  const restoreScroll=restoreUIState();applyFilters();
  requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,restoreScroll||0)));
  if(persistent)$('saved').title='Browser persistent storage granted';
