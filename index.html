@@ -6,12 +6,17 @@
 <title>Ledger · Prototype v11.8</title>
 <link rel="stylesheet" href="https://data.sorcery.no/ui/v1/tokens.css">
 <link rel="stylesheet" href="https://data.sorcery.no/ui/v1/themes/sorcery.css">
+<link rel="stylesheet" href="https://data.sorcery.no/ui/v1/themes/light.css">
+<link rel="stylesheet" href="https://data.sorcery.no/ui/v1/themes/void.css">
+<link rel="stylesheet" href="https://data.sorcery.no/ui/v1/themes/parchment.css">
 <link rel="stylesheet" href="https://data.sorcery.no/ui/v1/base.css">
+<script>try{const t=localStorage.getItem('sorcery-theme');if(['sorcery','light','void','parchment'].includes(t))document.documentElement.dataset.theme=t}catch{}</script>
 <style>
 *{box-sizing:border-box}body{margin:0;background:var(--sorcery-bg);color:var(--sorcery-text);font:15px/1.45 system-ui,-apple-system,Segoe UI,sans-serif}
 header{position:sticky;top:0;z-index:10;background:var(--sorcery-header-bg);border-bottom:1px solid var(--sorcery-border);backdrop-filter:blur(10px)}
 .wrap,main{max-width:1450px;margin:auto;padding:16px 22px}.top{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
 h1{font:600 21px Georgia,serif;margin:0;margin-right:auto}.status{font-size:13px;color:var(--sorcery-text-muted)}.status b{color:var(--sorcery-text)}
+.themecontrol{display:flex;align-items:center;gap:7px;color:var(--sorcery-text-muted);font-size:13px}.themecontrol select{padding:8px 28px 8px 10px}
 button,select,input{background:var(--sorcery-surface-raised);border:1px solid var(--sorcery-border);color:var(--sorcery-text);border-radius:7px;padding:9px 11px}
 button{cursor:pointer}button:hover{border-color:var(--sorcery-text-subtle)}.primary{border-color:var(--sorcery-border-accent);color:var(--sorcery-text-accent)}.headmenu{position:relative}.headmenu>summary{list-style:none;cursor:pointer;background:var(--sorcery-surface-raised);border:1px solid var(--sorcery-border);color:var(--sorcery-text);border-radius:7px;padding:9px 11px;user-select:none}.headmenu>summary::-webkit-details-marker{display:none}.headmenu>summary:hover{border-color:var(--sorcery-text-subtle)}.headmenu[open]>summary{border-color:var(--sorcery-text-subtle)}.headmenuitems{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:230px;padding:6px;background:var(--sorcery-surface);border:1px solid var(--sorcery-border);border-radius:9px;box-shadow:0 12px 35px var(--sorcery-shadow-color, #0008)}.headmenuitems button{display:block;width:100%;border:0;background:transparent;text-align:left;padding:9px 10px}.headmenuitems button:hover{background:var(--sorcery-surface-raised)}
 .toolbar{display:grid;grid-template-columns:minmax(220px,1fr) repeat(3,170px) auto;gap:10px;margin-top:14px}
@@ -89,6 +94,7 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
   <h1>Ledger <small style="color:var(--sorcery-text-subtle);font:12px system-ui">prototype v11.6</small></h1>
   <div class="status">Local copy: <b id="saved">not created</b></div>
   <div class="status">Backup: <b id="backup">none</b></div>
+  <label class="themecontrol" for="themeSelect"><span>Theme</span><select id="themeSelect"><option value="sorcery">Sorcery</option><option value="light">Light</option><option value="void">Void</option><option value="parchment">Parchment</option></select></label>
   <details class="headmenu" id="importMenu"><summary>Import ▾</summary><div class="headmenuitems">
    <button id="curiosaBtn">Collection CSV</button>
    <button id="importBtn" title="Restore tracker-specific JSON backup">Ledger backup</button>
@@ -198,6 +204,9 @@ const DB_NAME='sorcery-collection-prototype', DB_VERSION=4;
 let db,cards=[],filtered=[],rendered=0,inv=new Map(),catalogueMeta=null;
 let meta={revision:0,baselineRevision:0,lastModified:null,lastExported:null};
 const $=id=>document.getElementById(id);
+const THEME_NAMES=['sorcery','light','void','parchment'];
+function initTheme(){const select=$('themeSelect');let theme=document.documentElement.dataset.theme||'sorcery';if(!THEME_NAMES.includes(theme))theme='sorcery';document.documentElement.dataset.theme=theme;select.value=theme;select.onchange=()=>{document.documentElement.dataset.theme=select.value;try{localStorage.setItem('sorcery-theme',select.value)}catch{};if(activePriceHover)renderPricePopover(activePriceHover.anchor,activePriceHover.range)}}
+initTheme();
 function syncLedgerHeaderHeight(){const h=document.querySelector('header');if(h)document.documentElement.style.setProperty('--ledger-header-height',`${Math.ceil(h.getBoundingClientRect().height)}px`)}
 window.addEventListener('resize',syncLedgerHeaderHeight);
 window.addEventListener('load',syncLedgerHeaderHeight);
