@@ -86,11 +86,11 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
 .emptyworkspace{padding:70px 20px;text-align:center;color:var(--sorcery-text-muted)}
 .creategrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.creategrid label{display:flex;flex-direction:column;gap:5px;color:var(--sorcery-text-muted);font-size:12px}.creategrid .wide{grid-column:1/-1}
 @media(max-width:900px){.listlayout{grid-template-columns:1fr}.decklayout{grid-template-columns:1fr}.deckpreview{position:static;display:none}.listnav{display:flex;overflow:auto}.listnavitem{min-width:180px}.entryrow{grid-template-columns:42px minmax(0,1fr) 64px 78px 30px}}
-.backtotop{position:fixed;right:20px;bottom:20px;z-index:900;width:46px;height:46px;padding:0;border-radius:50%;display:grid;place-items:center;background:var(--sorcery-surface-raised);border:1px solid var(--sorcery-border-accent);color:var(--sorcery-text-accent);box-shadow:0 8px 24px var(--sorcery-shadow-color, #0008);font-size:24px;line-height:1;opacity:0;visibility:hidden;transform:translateY(10px);pointer-events:none;transition:opacity .18s ease,transform .18s ease,visibility .18s}
-.backtotop.visible{opacity:1;visibility:visible;transform:translateY(0);pointer-events:auto}.backtotop:hover{background:var(--sorcery-surface-active);border-color:var(--sorcery-accent)}.backtotop:focus-visible{outline:2px solid var(--sorcery-accent);outline-offset:3px}
-@supports(right:max(0px,env(safe-area-inset-right,0px))){.backtotop{right:max(20px,env(safe-area-inset-right,0px));bottom:max(20px,env(safe-area-inset-bottom,0px))}}
-@media(max-width:700px){.backtotop{right:14px;bottom:14px;width:48px;height:48px}@supports(right:max(0px,env(safe-area-inset-right,0px))){.backtotop{right:max(14px,env(safe-area-inset-right,0px));bottom:max(14px,env(safe-area-inset-bottom,0px))}}}
-@media(prefers-reduced-motion:reduce){.backtotop{transition:none}}
+.ledgerjumpcontrol{position:fixed;right:20px;bottom:20px;z-index:900;width:46px;height:46px;padding:0;border-radius:50%;display:grid;place-items:center;background:var(--sorcery-surface-raised);border:1px solid var(--sorcery-border-accent);color:var(--sorcery-text-accent);box-shadow:0 8px 24px var(--sorcery-shadow-color, #0008);font-size:24px;line-height:1;opacity:0;visibility:hidden;transform:translateY(10px);pointer-events:none;transition:opacity .18s ease,transform .18s ease,visibility .18s}
+.ledgerjumpcontrol.visible{opacity:1;visibility:visible;transform:translateY(0);pointer-events:auto}.ledgerjumpcontrol:hover{background:var(--sorcery-surface-active);border-color:var(--sorcery-accent)}.ledgerjumpcontrol:focus-visible{outline:2px solid var(--sorcery-accent);outline-offset:3px}
+@supports(right:max(0px,env(safe-area-inset-right,0px))){.ledgerjumpcontrol{right:max(20px,env(safe-area-inset-right,0px));bottom:max(20px,env(safe-area-inset-bottom,0px))}}
+@media(max-width:700px){.ledgerjumpcontrol{right:14px;bottom:14px;width:48px;height:48px}@supports(right:max(0px,env(safe-area-inset-right,0px))){.ledgerjumpcontrol{right:max(14px,env(safe-area-inset-right,0px));bottom:max(14px,env(safe-area-inset-bottom,0px))}}}
+@media(prefers-reduced-motion:reduce){.ledgerjumpcontrol{transition:none}}
 </style>
 </head>
 <body>
@@ -197,7 +197,7 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
   <img class="inspectimg" id="inspectImg" alt="">
  </div>
 </div>
-<button class="backtotop" id="backToTop" type="button" aria-label="Back to top" aria-hidden="true" title="Back to top">↑</button>
+<button class="ledgerjumpcontrol" id="ledgerJumpControl" type="button" aria-label="Back to top" aria-hidden="true" title="Back to top">↑</button>
 <script>
 const CATALOGUE_URL='https://data.sorcery.no/cards.json';
 const CATALOGUE_META_URL='https://data.sorcery.no/cards-meta.json';
@@ -517,11 +517,11 @@ function restoreUIState(){
 }
 let scrollSaveTimer;
 window.addEventListener('scroll',()=>{clearTimeout(scrollSaveTimer);scrollSaveTimer=setTimeout(saveUIState,120)},{passive:true});
-const backToTop=$('backToTop');
-function updateBackToTop(){const visible=(window.scrollY||window.pageYOffset||document.documentElement.scrollTop||0)>150;backToTop.classList.toggle('visible',visible);backToTop.setAttribute('aria-hidden',String(!visible))}
-window.addEventListener('scroll',updateBackToTop,{passive:true});
-backToTop.onclick=()=>window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
-updateBackToTop();
+const ledgerJumpControl=$('ledgerJumpControl');
+function syncLedgerJumpControl(){const visible=(window.scrollY||window.pageYOffset||document.documentElement.scrollTop||0)>150;ledgerJumpControl.classList.toggle('visible',visible);ledgerJumpControl.setAttribute('aria-hidden',String(!visible))}
+window.addEventListener('scroll',syncLedgerJumpControl,{passive:true});
+ledgerJumpControl.onclick=()=>window.scrollTo({top:0,behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'});
+syncLedgerJumpControl();
 
 function cycleChip(btn){
  const tier=btn.closest('.filterrow').dataset.tier,val=btn.dataset.value,cur=quick[tier].get(val)||0,next=(cur+1)%3;
