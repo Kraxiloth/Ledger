@@ -43,6 +43,7 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
 .modalback.open{display:flex}.modal{width:min(760px,100%);max-height:85vh;overflow:auto;background:var(--sorcery-surface);border:1px solid var(--sorcery-border);border-radius:16px;padding:20px;box-shadow:0 20px 80px var(--sorcery-shadow-color, #0008)}
 .modal h2{margin-top:0}.importgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin:14px 0}.importstat{background:var(--sorcery-bg);border:1px solid var(--sorcery-border);border-radius:10px;padding:10px}.importstat b{display:block;font-size:20px}
 .importissues{font-size:13px;white-space:pre-wrap;background:var(--sorcery-bg);border:1px solid var(--sorcery-border);border-radius:10px;padding:10px;max-height:240px;overflow:auto}.modalactions{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+.quantitycard{display:flex;align-items:center;gap:12px;margin:14px 0;padding:12px;background:var(--sorcery-bg);border:1px solid var(--sorcery-border);border-radius:10px}.quantitycard img{width:58px;height:82px;object-fit:contain}.quantitycard strong,.quantitycard span{display:block}.quantitycard span{color:var(--sorcery-text-muted);font-size:13px;margin-top:2px}.quantityfield{display:flex;flex-direction:column;gap:6px;color:var(--sorcery-text-muted);font-size:12px}.quantityfield input{width:100%;font-size:20px;text-align:center;font-variant-numeric:tabular-nums}.quantityerror{min-height:20px;margin-top:6px;color:var(--sorcery-danger-text);font-size:13px}.quantitywarning{margin-top:10px;padding:11px 12px;background:var(--sorcery-warning-surface);border:1px solid var(--sorcery-warning-border);border-radius:9px;color:var(--sorcery-warning-text, var(--sorcery-text))}
 @media(max-width:650px){.importgrid{grid-template-columns:repeat(2,1fr)}}
 
 .inspectback{position:fixed;inset:0;background:var(--sorcery-backdrop-strong);display:none;align-items:center;justify-content:center;padding:24px;z-index:1100;overflow:auto}
@@ -189,6 +190,17 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
    <button id="curiosaConfirm">Replace inventory with this import</button>
   </div>
  </div>
+</div>
+
+<div class="modalback" id="quantityModal">
+ <form class="modal" id="quantityForm" style="width:min(460px,100%)" novalidate>
+  <h2>Add card</h2>
+  <div class="quantitycard"><img id="quantityCardImg" alt=""><div><strong id="quantityCardName"></strong><span id="quantityCardMeta"></span><span id="quantityDestination"></span></div></div>
+  <label class="quantityfield" for="quantityInput">Number of copies<input id="quantityInput" type="text" inputmode="numeric" autocomplete="off" value="1" aria-describedby="quantityError quantityWarning"></label>
+  <div class="quantityerror" id="quantityError" aria-live="polite"></div>
+  <div class="quantitywarning" id="quantityWarning" role="alert" hidden></div>
+  <div class="modalactions"><button type="button" id="quantityCancel">Cancel</button><button class="primary" type="submit" id="quantityConfirm">Add</button></div>
+ </form>
 </div>
 
 
@@ -897,7 +909,22 @@ function handleAddSearchKeys(e,l){const box=$('listAddResults');if(!box||box.hid
 function renderAddResults(l,query){const box=$('listAddResults');const q=normText(query);if(!q){addResultIndex=-1;box.hidden=true;box.innerHTML='';return}const matches=cards.filter(c=>normText(c.name).includes(q)||normText(c.rules||'').includes(q)).sort((a,b)=>{const an=normText(a.name).includes(q),bn=normText(b.name).includes(q);return Number(bn)-Number(an)||a.name.localeCompare(b.name)}).slice(0,30);box.hidden=false;box.innerHTML=matches.length?'':'<div style="padding:10px;color:var(--sorcery-text-muted)">No cards found.</div>';for(const c of matches){const b=document.createElement('button');b.className='addresult';b.innerHTML=`<span>${esc(c.name)}</span><small>${[c.type,c.rarity].filter(Boolean).map(esc).join(' · ')}</small>`;b.onclick=()=>addCardToList(l,c);box.appendChild(b)}if(addResultIndex>=matches.length)addResultIndex=matches.length-1;updateAddResultHighlight()}
 function preloadDeckCardImage(c,entry){if(!c)return;const slug=entry?.variantSlug||entry?.preferredPrinting;const v=(slug&&c.variants.find(x=>x.slug===slug))||preferredVariant(c)||c.variants[0];if(!v)return;const img=new Image();img.src=imageUrl(v.slug)}
 function refocusAddSearch(){addResultIndex=-1;requestAnimationFrame(()=>{const q=$('listCardSearch');if(!q)return;q.value='';const box=$('listAddResults');if(box){box.hidden=true;box.innerHTML=''}q.focus()})}
-async function addCardToList(l,c){let zone='list';if(l.kind==='deck'){const sel=$('deckAddZone')?.value||deckAddZoneChoice.get(l.id)||'auto';deckAddZoneChoice.set(l.id,sel);zone=sel==='auto'?inferDeckZone(c):sel;await changeDeckZone(l,c,zone,1);refocusAddSearch();return}let e=l.entries.find(x=>x.cardId===c.id&&x.zone===zone);if(e)e.quantity++;else{e={cardId:c.id,quantity:1,zone,preferredPrinting:null};l.entries.push(e)}await saveList(l);refocusAddSearch()}
+const MAX_ADD_QUANTITY=999;
+let pendingQuantityAdd=null,quantityWarningAccepted=false;
+function selectedAddZone(l,c){if(l.kind!=='deck')return'list';const sel=$('deckAddZone')?.value||deckAddZoneChoice.get(l.id)||'auto';deckAddZoneChoice.set(l.id,sel);return sel==='auto'?inferDeckZone(c):sel}
+function quantityDestinationLabel(l,zone){return l.kind==='deck'?(zone==='avatar'||zone==='spellbook'||zone==='atlas'?'Main deck':deckZoneLabel(zone)):'List'}
+function selectQuantityInput(value='1'){const input=$('quantityInput');input.value=value;requestAnimationFrame(()=>{input.focus();input.select()})}
+function closeQuantityModal(refocus=true){$('quantityModal').classList.remove('open');$('quantityWarning').hidden=true;$('quantityError').textContent='';pendingQuantityAdd=null;quantityWarningAccepted=false;if(refocus)refocusAddSearch()}
+function openQuantityModal(l,c){const zone=selectedAddZone(l,c),v=preferredVariant(c)||c.variants[0];pendingQuantityAdd={l,c,zone};quantityWarningAccepted=false;$('quantityCardName').textContent=c.name;$('quantityCardMeta').textContent=[c.rarity,c.type].filter(Boolean).join(' · ');$('quantityDestination').textContent=`Destination: ${quantityDestinationLabel(l,zone)}`;const img=$('quantityCardImg');if(v){img.src=imageUrl(v.slug);img.alt=c.name}else{img.removeAttribute('src');img.alt=''}$('quantityWarning').hidden=true;$('quantityError').textContent='';$('quantityCancel').textContent='Cancel';$('quantityConfirm').textContent='Add';$('quantityModal').classList.add('open');selectQuantityInput()}
+function parsedQuantity(){const raw=$('quantityInput').value.trim();if(!/^\d+$/.test(raw))return null;const n=Number(raw);return Number.isSafeInteger(n)&&n>=1&&n<=MAX_ADD_QUANTITY?n:null}
+function quantityLimitWarning({l,c,zone},amount){if(l.kind!=='deck'||!['spellbook','atlas'].includes(zone))return null;const limit=rarityLimit(c),current=Number(deckEntry(l,c.id,zone)?.quantity)||0,total=current+amount;if(!Number.isFinite(limit)||total<=limit)return null;return {limit,current,total}}
+async function commitQuantityAdd({l,c,zone},amount){if(l.kind==='deck'){const current=Number(deckEntry(l,c.id,zone)?.quantity)||0;await setDeckZoneQuantity(l,c,zone,current+amount)}else{let e=l.entries.find(x=>x.cardId===c.id&&x.zone===zone);if(e)e.quantity+=amount;else{e={cardId:c.id,quantity:amount,zone,preferredPrinting:null};l.entries.push(e)}await saveList(l)}}
+async function addCardToList(l,c){openQuantityModal(l,c)}
+$('quantityForm').onsubmit=async e=>{e.preventDefault();if(!pendingQuantityAdd)return;const amount=parsedQuantity();if(amount===null){$('quantityError').textContent=`Enter a whole number from 1 to ${MAX_ADD_QUANTITY}.`;$('quantityWarning').hidden=true;quantityWarningAccepted=false;selectQuantityInput();return}$('quantityError').textContent='';const warning=quantityLimitWarning(pendingQuantityAdd,amount);if(warning&&!quantityWarningAccepted){$('quantityWarning').textContent=`This would give you ${warning.total} copies of ${pendingQuantityAdd.c.name} in the main deck. The maximum for a ${pendingQuantityAdd.c.rarity} card is ${warning.limit}. Are you sure you want to add ${amount}?`;$('quantityWarning').hidden=false;$('quantityCancel').textContent='Use 1 instead';$('quantityConfirm').textContent='Add anyway';quantityWarningAccepted=true;return}const pending=pendingQuantityAdd;closeQuantityModal(false);await commitQuantityAdd(pending,amount);refocusAddSearch()};
+$('quantityCancel').onclick=()=>{if(quantityWarningAccepted){quantityWarningAccepted=false;$('quantityWarning').hidden=true;$('quantityCancel').textContent='Cancel';$('quantityConfirm').textContent='Add';selectQuantityInput()}else closeQuantityModal()};
+$('quantityInput').oninput=()=>{if(quantityWarningAccepted){quantityWarningAccepted=false;$('quantityWarning').hidden=true;$('quantityCancel').textContent='Cancel';$('quantityConfirm').textContent='Add'}$('quantityError').textContent=''};
+$('quantityModal').onclick=e=>{if(e.target===$('quantityModal'))closeQuantityModal()};
+$('quantityModal').onkeydown=e=>{if(e.key==='Escape'){e.preventDefault();closeQuantityModal()}};
 const LEDGER_DECK_FORMAT='ledger-deck', LEDGER_DECK_SCHEMA=1;
 function safeFileName(name){return (name||'ledger-deck').replace(/[\\/:*?\"<>|]+/g,'-').replace(/\s+/g,' ').trim().slice(0,80)||'ledger-deck'}
 function serializeLedgerDeck(l){
