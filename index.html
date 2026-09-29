@@ -1064,6 +1064,432 @@ document.querySelectorAll('.viewtab').forEach(b=>b.onclick=()=>{document.querySe
 }catch(e){$('noticeText').textContent='Could not load the catalogue: '+e.message;console.error(e)}})();
 </script>
 
+<script>
+(() => {
+  // Skip if this version already includes deck sharing.
+  if (document.getElementById('deckShareModal')) return;
 
+  const ZONES = [
+    'avatar', 'spellbook', 'atlas', 'collection', 'maybeboard'
+  ];
+  const MAX_BYTES = 120000;
+  let ready = false;
+  let queue = Promise.resolve();
+
+  const modal = document.createElement('div');
+  modal.id = 'deckShareModal';
+  modal.className = 'modalback';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-modal', 'true');
+  modal.setAttribute('aria-labelledby', 'deckShareHeading');
+  modal.innerHTML = `
+    <div class="modal" style="width:min(620px,100%)">
+      <h2 id="deckShareHeading">Share deck</h2>
+      <label for="deckShareURL">Deck link</label>
+      <textarea
+        id="deckShareURL"
+        readonly
+        rows="4"
+        style="display:block;width:100%;box-sizing:border-box;
+               margin:10px 0;overflow-wrap:anywhere"
+      ></textarea>
+      <p id="deckShareStatus"
+         style="font-size:12px;color:var(--sorcery-text-muted)">
+      </p>
+      <div class="modalactions">
+        <button type="button" id="deckShareClose">Close</button>
+        <button type="button" class="primary" id="deckShareCopy">
+          Copy link
+        </button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(modal);
+
+  function base64(bytes) {
+    let text = '';
+    for (let i = 0; i < bytes.length; i += 8192) {
+      text += String.fromCharCode(...bytes.subarray(i, i + 8192));
+    }
+    return btoa(text)
+      .replace(/\+/g, '-')
+      .replace(/\//g, '_')
+      .replace(/=+$/, '');
+  }
+
+  async function encode(snapshot) {
+    let bytes = new TextEncoder().encode(JSON.stringify(snapshot));
+    if (bytes.length > MAX_BYTES) {
+      throw new Error('This deck is too large to share through a URL.');
+    }
+
+    let mode = 'r';
+    if (typeof CompressionStream !== 'undefined') {
+      bytes = new Uint8Array(
+        await new Response(
+          new Blob([bytes]).stream().pipeThrough(
+            new CompressionStream('gzip')
+          )
+        ).arrayBuffer()
+      );
+      mode = 'g';
+    }
+    return '1' + mode + '.' + base64(bytes);
+  }
+
+  async function decode(token) {
+    if (
+      typeof token !== 'string' ||
+      token.length > 160010 ||
+      !/^1[rg]\.[A-Za-z0-9_-]+$/.test(token)
+    ) {
+      throw new Error('Invalid or unsupported deck link.');
+    }
+
+    let binary;
+    try {
+      binary = atob(
+        token.slice(3).replace(/-/g, '+').replace(/_/g, '/')
+      );
+    } catch {
+      throw new Error('This deck link is damaged.');
+    }
+
+    let bytes = Uint8Array.from(binary, c => c.charCodeAt(0));
+
+    if (token[1] === 'g') {
+      if (typeof DecompressionStream === 'undefined') {
+        throw new Error(
+          'Your browser does not support compressed deck links.'
+        );
+      }
+
+      const reader = new Blob([bytes]).stream().pipeThrough(
+        new DecompressionStream('gzip')
+      ).getReader();
+
+      const chunks = [];
+      let size = 0;
+
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          size += value.length;
+
+          if (size > MAX_BYTES) {
+            await reader.cancel();
+            throw new Error('This deck link is too large.');
+          }
+          chunks.push(value);
+        }
+      } finally {
+        reader.releaseLock();
+      }
+
+      bytes = new Uint8Array(size);
+      let offset = 0;
+      for (const chunk of chunks) {
+        bytes.set(chunk, offset);
+        offset += chunk.length;
+      }
+    }
+
+    if (bytes.length > MAX_BYTES) {
+      throw new Error('This deck link is too large.');
+    }
+
+    let snapshot;
+    try {
+      snapshot = JSON.parse(
+        new TextDecoder('utf-8', { fatal: true }).decode(bytes)
+      );
+    } catch {
+      throw new Error('Invalid deck data.');
+    }
+
+    const d = snapshot?.d;
+    const text = (v, max) => typeof v === 'string' && v.length <= max;
+
+    if (
+      snapshot?.v !== 1 ||
+      !Array.isArray(d) ||
+      d.length !== 6 ||
+      !text(d[0], 200) || !d[0] ||
+      !text(d[1], 80) ||
+      !text(d[2], 180) ||
+      !Array.isArray(d[3]) ||
+      d[3].length > 50 ||
+      !d[3].every(tag => text(tag, 100)) ||
+      !DECK_SORT_MODES.has(d[4]) ||
+      !Array.isArray(d[5]) ||
+      d[5].length > 1000
+    ) {
+      throw new Error('Invalid deck data.');
+    }
+
+    let total = 0;
+
+    for (const e of d[5]) {
+      if (
+        !Array.isArray(e) ||
+        e.length !== 6 ||
+        !text(e[0], 200) ||
+        !(e[1] === null || text(e[1], 200)) ||
+        !text(e[2], 200) ||
+        !Number.isInteger(e[3]) ||
+        e[3] < 0 || e[3] >= ZONES.length ||
+        !Number.isInteger(e[4]) ||
+        e[4] < 1 || e[4] > 1000 ||
+        !(e[5] === null || text(e[5], 200))
+      ) {
+        throw new Error('Invalid card entry in deck link.');
+      }
+      total += e[4];
+    }
+
+    if (total > 2000) {
+      throw new Error('This deck link contains too many cards.');
+    }
+
+    return snapshot;
+  }
+
+  function selectDeck(deck) {
+    activeListId = deck.id;
+    pinnedDeckCard = null;
+    pinnedListCard = null;
+
+    document.querySelectorAll('.viewtab').forEach(button => {
+      button.classList.toggle(
+        'active', button.dataset.view === 'listsView'
+      );
+    });
+
+    document.querySelectorAll('.appview').forEach(view => {
+      view.hidden = view.id !== 'listsView';
+    });
+
+    renderListNav();
+    renderListWorkspace();
+  }
+
+  async function importOrSelect(snapshot) {
+    const [
+      sourceId, name, description, tags, sortMode, rawEntries
+    ] = snapshot.d;
+
+    const existing = ledgerLists.find(deck =>
+      deck.kind === 'deck' &&
+      (
+        deck.id === sourceId ||
+        deck.sharedDeckSourceId === sourceId
+      )
+    );
+
+    if (existing) {
+      selectDeck(existing);
+      return;
+    }
+
+    const entries = [];
+    const missing = [];
+
+    for (const raw of rawEntries) {
+      const [
+        cardId, cardSlug, cardName, zoneIndex, quantity, printing
+      ] = raw;
+
+      const card = resolveImportedDeckCard({
+        cardId, cardSlug, cardName
+      });
+
+      if (!card) {
+        missing.push(cardName);
+        continue;
+      }
+
+      const zone = ZONES[zoneIndex];
+      const variantSlug = card.variants.some(v => v.slug === printing)
+        ? printing
+        : (preferredVariant(card) || card.variants[0])?.slug || null;
+
+      const prior = entries.find(entry =>
+        entry.cardId === card.id && entry.zone === zone
+      );
+
+      if (prior) {
+        prior.quantity += quantity;
+        prior.printAssignments.push(
+          ...Array(quantity).fill(variantSlug)
+        );
+      } else {
+        entries.push({
+          cardId: card.id,
+          zone,
+          quantity,
+          variantSlug,
+          preferredPrinting: variantSlug,
+          printAssignments: Array(quantity).fill(variantSlug)
+        });
+      }
+    }
+
+    if (missing.length) {
+      throw new Error(
+        'These cards are missing from the catalogue: ' +
+        missing.slice(0, 20).join(', ')
+      );
+    }
+
+    const now = new Date().toISOString();
+    const collision = ledgerLists.some(item => item.id === sourceId);
+
+    const deck = {
+      id: collision ? makeId() : sourceId,
+      sharedDeckSourceId: sourceId,
+      kind: 'deck',
+      name,
+      description,
+      tags: [...tags],
+      sortMode,
+      entries,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    await putOne('lists', deck);
+    await loadLists();
+    selectDeck(deck);
+  }
+
+  async function openURL() {
+    const token = new URLSearchParams(
+      location.hash.slice(1)
+    ).get('deck');
+
+    if (!token) return;
+
+    try {
+      await importOrSelect(await decode(token));
+    } catch (error) {
+      alert('Could not open shared deck: ' + error.message);
+    }
+  }
+
+  async function share(deck) {
+    const button = document.getElementById('deckShareBtn');
+    if (button) button.disabled = true;
+
+    try {
+      const data = serializeLedgerDeck(deck).deck;
+      const snapshot = {
+        v: 1,
+        d: [
+          data.id,
+          data.name,
+          data.description,
+          data.tags,
+          data.sortMode,
+          data.entries.filter(entry => entry.quantity > 0).map(entry => [
+            entry.cardId,
+            entry.cardSlug,
+            entry.cardName,
+            ZONES.indexOf(entry.zone),
+            entry.quantity,
+            entry.variantSlug
+          ])
+        ]
+      };
+
+      const token = await encode(snapshot);
+      const url = new URL(location.href);
+      url.hash = new URLSearchParams({ deck: token }).toString();
+
+      const field = document.getElementById('deckShareURL');
+      field.value = url.href;
+      document.getElementById('deckShareStatus').textContent =
+        'Anyone with this link can import this deck. If its ID is ' +
+        'already saved, Ledger opens the saved deck. The link contains ' +
+        'a snapshot of the deck when shared.';
+
+      modal.classList.add('open');
+      field.focus();
+      field.select();
+    } catch (error) {
+      alert('Could not share deck: ' + error.message);
+    } finally {
+      if (button) button.disabled = false;
+    }
+  }
+
+  // Add the button whenever Ledger renders a deck.
+  const originalRender = renderListWorkspace;
+  renderListWorkspace = function (...args) {
+    const result = originalRender.apply(this, args);
+    const deck = ledgerLists.find(item => item.id === activeListId);
+    const exportButton = document.getElementById('deckExportBtn');
+
+    if (
+      deck?.kind === 'deck' &&
+      exportButton &&
+      !document.getElementById('deckShareBtn')
+    ) {
+      const button = document.createElement('button');
+      button.id = 'deckShareBtn';
+      button.type = 'button';
+      button.textContent = 'Share deck';
+      button.onclick = () => share(deck);
+      exportButton.before(button);
+    }
+
+    return result;
+  };
+
+  // Process the incoming URL after the catalogue and saved decks load.
+  const originalLoad = loadLists;
+  loadLists = async function (...args) {
+    const result = await originalLoad.apply(this, args);
+
+    if (!ready && cards.length) {
+      ready = true;
+      queue = queue.then(openURL);
+      await queue;
+    }
+
+    return result;
+  };
+
+  window.addEventListener('hashchange', () => {
+    if (ready) queue = queue.then(openURL);
+  });
+
+  document.getElementById('deckShareClose').onclick = () => {
+    modal.classList.remove('open');
+  };
+
+  modal.onclick = event => {
+    if (event.target === modal) modal.classList.remove('open');
+  };
+
+  modal.onkeydown = event => {
+    if (event.key === 'Escape') modal.classList.remove('open');
+  };
+
+  document.getElementById('deckShareCopy').onclick = async () => {
+    const field = document.getElementById('deckShareURL');
+    const status = document.getElementById('deckShareStatus');
+
+    try {
+      await navigator.clipboard.writeText(field.value);
+      status.textContent = 'Deck link copied.';
+    } catch {
+      field.focus();
+      field.select();
+      status.textContent = 'Select and copy the link above.';
+    }
+  };
+})();
+</script>
 
 </body></html>
