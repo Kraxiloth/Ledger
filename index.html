@@ -129,13 +129,18 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
 .accountdialog::backdrop{background:rgba(0,0,0,.7)}.accountdialoghead{display:flex;align-items:center;justify-content:space-between;gap:16px}.accountdialoghead h2{margin:0;font:600 24px Georgia,serif}.accounthelp{font-size:13px;line-height:1.5;color:var(--sorcery-text-muted)}
 .accountfields{display:grid;grid-template-columns:1fr 1fr;gap:14px}.accountfields label,.accountdialog label{display:flex;flex-direction:column;gap:5px;font-size:13px}.accountfields label:first-child{grid-column:1/-1}.accountdialog input,.accountdialog select{width:100%;min-height:44px;box-sizing:border-box}.accountactions{display:flex;gap:8px;flex-wrap:wrap}.accountdialog button{min-height:44px}.accountrecords{margin-top:18px}.accountrecord{padding:14px 0;border-top:1px solid var(--sorcery-border)}.accountrecord strong{display:block;overflow-wrap:anywhere}.accountrecord small{display:block;color:var(--sorcery-text-muted);margin:5px 0 10px}#ledgerCloudStatus{font-size:13px;line-height:1.5;overflow-wrap:anywhere}#ledgerCloudShare{margin-top:16px}#ledgerCloudCopyLink{margin-top:8px}
 @media(max-width:600px){.ledgeraccount{margin-left:0;width:100%}.accountdialog{padding:16px}.accountfields{grid-template-columns:1fr}.accountdialoghead h2{font-size:20px}.accountactions button{flex:1}.accountdialoghead button{flex:none}}
+
+.syncgate{position:fixed;inset:0;background:var(--sorcery-bg);opacity:.97;z-index:80;display:grid;place-items:center;font-size:17px;text-align:center;padding:24px}
+#ledgerSyncStatus{max-width:none;color:var(--sorcery-text-muted);font-size:12px}
+#ledgerSyncStatus[data-state="conflict"]{color:#e5b75d}
+#ledgerSyncStatus[data-state="offline"]{color:var(--sorcery-text-muted)}
 </style>
 </head>
 <body>
 <header><div class="wrap">
  <div class="top">
   <h1>Ledger <small style="color:var(--sorcery-text-subtle);font:12px system-ui">prototype</small></h1>
-  <div class="ledgeraccount"><span id="ledgerAccountName"></span><a id="ledgerAccountLogin" href="https://sorcery.no/">Log in at Sorcery.no</a><button id="ledgerAccountSaves" type="button" hidden>Account saves</button></div>
+  <div class="ledgeraccount"><span id="ledgerAccountName"></span><a id="ledgerAccountLogin" href="https://sorcery.no/">Log in at Sorcery.no</a><span id="ledgerSyncStatus" role="status" aria-live="polite">Checking account…</span><button id="ledgerAccountSaves" type="button" hidden>Account &amp; sharing</button></div>
   <div class="status">Local copy: <b id="saved">not created</b></div>
   <div class="status">Backup: <b id="backup">none</b></div>
   <label class="themecontrol" for="themeSelect"><span>Theme</span><select id="themeSelect"><option value="sorcery">Sorcery</option><option value="light">Light</option><option value="void">Void</option><option value="parchment">Parchment</option></select></label>
@@ -1114,7 +1119,7 @@ document.querySelectorAll('.viewtab').forEach(b=>b.onclick=()=>{document.querySe
  initBaseCollapse();
  await openDB();meta=(await getMeta())||meta;await reloadInventory();
  const persistent=await ensurePersistentStorage();
- await loadCatalogue();await loadCurrentPrices();refreshStats();updateStatus();await loadLists();
+ await loadCatalogue();await loadCurrentPrices();await window.LedgerSync.start();refreshStats();updateStatus();await loadLists();
  const restoreScroll=restoreUIState();applyFilters();
  requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,restoreScroll||0)));
  if(persistent)$('saved').title='Browser persistent storage granted';
@@ -1436,6 +1441,7 @@ document.querySelectorAll('.viewtab').forEach(b=>b.onclick=()=>{document.querySe
   }
 
   async function share(deck) {
+    if (window.LedgerSync?.signedIn()) return window.LedgerSync.shareRecord(deck);
     const button = document.getElementById('deckShareBtn');
     if (button) button.disabled = true;
 
@@ -1496,8 +1502,8 @@ document.querySelectorAll('.viewtab').forEach(b=>b.onclick=()=>{document.querySe
       const button = document.createElement('button');
       button.id = 'deckShareBtn';
       button.type = 'button';
-      button.textContent = 'Share snapshot';
-      button.title = 'Create a separate unlisted snapshot link. Account save visibility is managed in Account saves.';
+      button.textContent = window.LedgerSync?.signedIn() ? 'Share deck' : 'Share snapshot';
+      button.title = window.LedgerSync?.signedIn() ? 'Manage visibility and share this account deck.' : 'Create a separate unlisted snapshot link.';
       button.onclick = () => share(deck);
       exportButton.before(button);
     }
@@ -1608,191 +1614,393 @@ decode = async function(token) {
 })();
 </script>
 
+<div id="ledgerSyncGate" class="syncgate" hidden role="status">Opening your Ledger…</div>
 <dialog id="ledgerAccountDialog" class="accountdialog" aria-labelledby="ledgerAccountTitle">
- <div class="accountdialoghead"><h2 id="ledgerAccountTitle">Your account saves</h2><button id="ledgerAccountClose" type="button" aria-label="Close account saves">Close</button></div>
- <p class="accounthelp">Edits stay in this browser until you save them to your account. Loading a list or deck creates a local copy. Loading a collection replaces the local inventory after confirmation.</p>
- <section id="ledgerCloudEditor" hidden>
-  <div class="accountfields"><label>Save from this browser<select id="ledgerCloudTarget"></select></label><label>Name<input id="ledgerCloudName" maxlength="100" value="My collection"></label><label>Visibility<select id="ledgerCloudVisibility"><option value="private">Private - only you</option><option value="unlisted">Unlisted - anyone with the link</option><option value="public">Public - discoverable by everyone</option></select></label></div>
-  <p class="accounthelp" id="ledgerVisibilityNote">Private saves are only accessible to your account.</p>
-  <div class="accountactions"><button id="ledgerCloudSave" class="primary" type="button">Save to account</button><button id="ledgerCloudSaveCopy" type="button">Save a new copy</button><button id="ledgerCloudRefresh" type="button">Refresh saved records</button></div>
- </section>
+ <div class="accountdialoghead"><h2 id="ledgerAccountTitle">Account &amp; sharing</h2><button id="ledgerAccountClose" type="button">Close</button></div>
+ <p class="accounthelp">Your collection, lists and decks save automatically while signed in. Changes made offline stay on this device until it reconnects. New records are private.</p>
+ <label>Manage visibility<select id="ledgerCloudTarget"></select></label>
+ <div class="accountfields"><label id="ledgerCollectionNameLabel">Collection name<input id="ledgerCloudName" maxlength="100"></label><label>Visibility<select id="ledgerCloudVisibility"><option value="private">Private - only you</option><option value="unlisted">Unlisted - anyone with the link</option><option value="public">Public - discoverable by everyone</option></select></label></div>
+ <p id="ledgerVisibilityNote" class="accounthelp"></p>
+ <div class="accountactions"><button id="ledgerCloudCopyLink" type="button">Copy share link</button><button id="ledgerSyncRetry" type="button">Retry connection</button></div>
+ <input id="ledgerCloudShareURL" aria-label="Share link" readonly hidden>
  <p id="ledgerCloudStatus" role="status" aria-live="polite"></p>
- <div id="ledgerCloudRecords" class="accountrecords"></div>
- <div id="ledgerCloudShare" hidden><label>Account share link<input id="ledgerCloudShareURL" readonly></label><button id="ledgerCloudCopyLink" type="button">Copy link</button></div>
+ <div id="ledgerSyncConflicts"></div>
+ <div id="ledgerExtraCollections"></div>
+</dialog>
+<dialog id="ledgerMigrationDialog" class="accountdialog" aria-labelledby="ledgerMigrationTitle">
+ <h2 id="ledgerMigrationTitle">Bring your browser data into your account?</h2>
+ <p id="ledgerMigrationDetails"></p>
+ <div class="accountactions"><button id="ledgerMigrationCopy" type="button">Copy browser data to my account</button><button id="ledgerMigrationEmpty" type="button">Start with an empty account</button></div>
+</dialog>
+<dialog id="ledgerSharedDialog" class="accountdialog" aria-labelledby="ledgerSharedTitle">
+ <div class="accountdialoghead"><h2 id="ledgerSharedTitle">Shared Ledger record</h2><button id="ledgerSharedClose" type="button">Close</button></div>
+ <p id="ledgerSharedDetails"></p><button id="ledgerSharedImport" type="button">Add a private copy to my Ledger</button>
 </dialog>
 <script>
 (() => {
- const API='https://api.sorcery.no';
- const dialog=$('ledgerAccountDialog'),status=$('ledgerCloudStatus'),target=$('ledgerCloudTarget');
- let user=null,links={},busy=false,ready=false,authVersion=0,openHash=null;
- const say=message=>{status.textContent=message};
- const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
- function checkAccount(expected){if(!user||user.id!==expected)throw new Error('The signed-in account changed. Reopen account saves.');}
- async function api(path,options={}){
-  const response=await fetch(API+path,{...options,credentials:'include',cache:'no-store',signal:AbortSignal.timeout(20000)});
-  const data=await response.json();
-  if(!response.ok){const error=new Error(data.error||'Account request failed');error.status=response.status;throw error;}
-  return data;
+ const API='https://api.sorcery.no',STATE_KEY='ledger-autosync-v1',REMEMBER='ledger-last-account-v1';
+ const dialog=$('ledgerAccountDialog');
+ let active=null,contexts=new Map(),ready=false,switching=false,sessionCheck=null,timer=null,shared=null;
+ const channel=typeof BroadcastChannel==='function'?new BroadcastChannel('ledger-account-cache-v1'):null;
+ const emptyState=()=>({initialized:false,links:{},prefs:{},createIds:{},attempts:{},conflicts:{},pending:[]});
+ const clone=value=>JSON.parse(JSON.stringify(value));
+ function stable(value){if(Array.isArray(value))return value.map(stable);if(value&&typeof value==='object')return Object.fromEntries(Object.keys(value).sort().map(key=>[key,stable(value[key])]));return value;}
+ async function fingerprint(value){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(JSON.stringify(stable(value))))),n=>n.toString(16).padStart(2,'0')).join('');}
+ function text(message){$('ledgerCloudStatus').textContent=message;}
+ function gate(show,message='Opening your Ledger…'){
+  $('ledgerSyncGate').hidden=!show;$('ledgerSyncGate').textContent=message;
+  document.querySelectorAll('header,main,.modal').forEach(el=>{el.inert=show});
  }
- function metaGet(key){return new Promise((resolve,reject)=>{const r=store('meta').get(key);r.onsuccess=()=>resolve(r.result?.value||r.result||{});r.onerror=()=>reject(r.error)})}
- function metaPut(key,value){return new Promise((resolve,reject)=>{const tx=db.transaction('meta','readwrite');putLedgerMeta(tx.objectStore('meta'),key,value);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)})}
- async function storeLinks(accountId){checkAccount(accountId);await metaPut('ledger-cloud:'+accountId,links)}
- async function refreshAccount(){
-  if(busy)return;
-  const version=++authVersion;
+ function remember(user){try{user?localStorage.setItem(REMEMBER,JSON.stringify(user)):localStorage.removeItem(REMEMBER)}catch{}}
+ function remembered(){try{return JSON.parse(localStorage.getItem(REMEMBER))}catch{return null}}
+ async function request(path,options={}){
+  let response;
+  try{response=await fetch(API+path,{...options,credentials:'include',cache:'no-store',signal:AbortSignal.timeout(15000)});}catch{const e=new Error('Offline - changes are kept on this device.');e.network=true;throw e;}
+  let data;try{data=await response.json()}catch{throw new Error('The account service returned an invalid response.');}
+  if(!response.ok){const e=new Error(data.error||'Account request failed.');e.status=response.status;e.network=response.status>=500;e.session=response.status===401||/signed-in account changed/.test(data.error||'');throw e;}return data;
+ }
+ function all(ctx,name){return new Promise((resolve,reject)=>{const r=ctx.raw(name,'readonly').objectStore(name).getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)})}
+ function readMeta(ctx,key){return new Promise((resolve,reject)=>{const r=ctx.raw('meta','readonly').objectStore('meta').get(key);r.onsuccess=()=>resolve(r.result?.value||r.result);r.onerror=()=>reject(r.error)})}
+ function writeMeta(ctx,key,value){return new Promise((resolve,reject)=>{const tx=ctx.raw('meta','readwrite');putLedgerMeta(tx.objectStore('meta'),key,value);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)})}
+ async function persist(ctx){await writeMeta(ctx,STATE_KEY,ctx.state)}
+ async function reloadState(ctx){ctx.state={...emptyState(),...(await readMeta(ctx,STATE_KEY)||{})}}
+ const GENERATION='ledger-local-generation-v1';
+ function commit(ctx,names,fn,expected){return new Promise((resolve,reject)=>{
+  const scope=[...new Set([...(typeof names==='string'?[names]:names),'meta'])],tx=ctx.raw(scope,'readwrite');let stale=false;
+  const os=tx.objectStore('meta'),r=os.get(GENERATION);
+  r.onsuccess=()=>{const generation=Number(r.result?.value||r.result||0);if(expected!==undefined&&generation!==expected){stale=true;tx.abort();return;}try{fn(tx);putLedgerMeta(os,GENERATION,generation+1)}catch(e){tx.abort();reject(e)}};
+  tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>stale?resolve(false):reject(tx.error||new Error('Local write failed.'));
+ })} 
+ function notify(ctx){channel?.postMessage({account:ctx.user?.id||null});}
+ async function repaint(ctx){if(active!==ctx||switching)return;meta=(await getMeta())||{revision:0,baselineRevision:0,lastModified:null,lastExported:null};await reloadInventory();await loadLists();refreshStats();updateStatus();applyFilters();fillTargets();}
+ function status(ctx=active){
+  const signed=!!ctx?.user;$('ledgerAccountLogin').hidden=signed;$('ledgerAccountSaves').hidden=!signed;
+  $('ledgerAccountName').textContent=signed?(ctx.user.display_name||'Sorcery.no account'):'';
+  const label=$('ledgerSyncStatus');
+  if(switching){label.textContent='Opening account…';return;}
+  if(!signed){label.textContent='Local only';return;}
+  const conflicts=Object.keys(ctx.state.conflicts).length;
+  label.textContent=conflicts?'Needs attention':!ctx.verified||!ctx.online?'Offline - saved on this device':ctx.running?'Saving…':ctx.state.pending.length?'Waiting to save…':'Saved to account';
+  label.dataset.state=conflicts?'conflict':!ctx.verified||!ctx.online?'offline':ctx.running||ctx.state.pending.length?'saving':'saved';
+  if(dialog.open)renderConflicts();
+ }
+ async function accountContext(user,database){
+  if(contexts.has(database)){const ctx=contexts.get(database);ctx.user=user;return ctx;}
+  const connection=await new Promise((resolve,reject)=>{const r=indexedDB.open(database,DB_VERSION);r.onupgradeneeded=()=>{const d=r.result;for(const [name,key] of [['inventory','slug'],['catalogue','key'],['cardnexus','slug'],['lists','id']])if(!d.objectStoreNames.contains(name))d.createObjectStore(name,{keyPath:key});if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta');};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
+  const ctx={user,db:connection,raw:connection.transaction.bind(connection),state:emptyState(),verified:false,online:false,running:false,flight:null};
+  await reloadState(ctx);
+  connection.transaction=function(names,mode,...rest){
+   const scope=typeof names==='string'?[names]:[...names],tracked=mode==='readwrite'&&scope.some(n=>['inventory','cardnexus','lists'].includes(n));
+   const tx=ctx.raw(tracked?[...new Set([...scope,'meta'])]:names,mode,...rest);
+   if(tracked){const os=tx.objectStore('meta'),r=os.get(GENERATION);r.onsuccess=()=>putLedgerMeta(os,GENERATION,Number(r.result?.value||r.result||0)+1);tx.addEventListener('complete',()=>{notify(ctx);if(active===ctx)schedule(700)});}
+   return tx;
+  };
+  contexts.set(database,ctx);return ctx;
+ }
+ async function snapshots(ctx){
+  const tx=ctx.raw(['inventory','cardnexus','lists','meta'],'readonly');
+  const read=(name,key)=>new Promise((resolve,reject)=>{const os=tx.objectStore(name),r=key?os.get(key):os.getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
+  const [inventory,cardnexus,lists,rawGeneration]=await Promise.all([read('inventory'),read('cardnexus'),read('lists'),read('meta',GENERATION)]);
+  const generation=Number(rawGeneration?.value||rawGeneration||0);
+  const prefs=ctx.state.prefs,links=ctx.state.links;
+  const result={collection:{kind:'collection',name:prefs.collection?.name||links.collection?.name||'My collection',visibility:prefs.collection?.visibility||links.collection?.visibility||'private',payload:{format:'ledger-account-collection',schemaVersion:1,inventory,cardnexus}}};
+  for(const l of lists)result[l.id]={kind:l.kind,name:l.name.slice(0,100),visibility:prefs[l.id]?.visibility||links[l.id]?.visibility||'private',payload:{format:'ledger-account-record',schemaVersion:1,record:l}};
+  for(const item of Object.values(result))item.hash=await fingerprint(item);
+  return {items:result,generation};
+ }
+ async function scan(ctx){
+  const {items,generation}=await snapshots(ctx),pending={},deleted={};
+  for(const [key,item] of Object.entries(items)){
+   const link=ctx.state.links[key];
+   if(key==='collection'&&!link?.id&&!ctx.state.prefs.collection&&!item.payload.inventory.length&&!item.payload.cardnexus.length){if(!link)ctx.state.links.collection={hash:item.hash};continue;}
+   if(item.hash!==link?.hash)pending[key]=item;
+  }
+  for(const [key,link] of Object.entries(ctx.state.links))if(key!=='collection'&&!items[key]&&link.id)deleted[key]=link;
+  ctx.state.pending=[...Object.keys(pending),...Object.keys(deleted)];await persist(ctx);return{items,pending,deleted,generation};
+ }
+ async function setBaseline(ctx,key,record){const item=(await snapshots(ctx)).items[key];ctx.state.links[key]={id:record.id,version:record.version,name:record.name,visibility:record.visibility,hash:item.hash};ctx.state.prefs[key]={name:record.name,visibility:record.visibility};delete ctx.state.createIds[key];delete ctx.state.conflicts[key];}
+ function validate(record){
+  const p=record.payload;if(p?.schemaVersion!==1)throw new Error('Unsupported Ledger account save.');
+  if(record.kind==='collection'){
+   if(!Array.isArray(p.inventory)||!Array.isArray(p.cardnexus))throw new Error('Invalid saved collection.');
+   const known=new Set(cards.flatMap(c=>c.variants.map(v=>v.slug)));
+   if(p.inventory.some(x=>!known.has(x.slug)))throw new Error('Saved collection contains printings missing from the catalogue. Local data was kept.');
+  }else if(!p.record||!Array.isArray(p.record.entries)||p.record.entries.some(e=>!cardById(e.cardId)))throw new Error('Saved record contains cards missing from the catalogue. Local data was kept.');
+ }
+ async function applyRecord(ctx,key,record,expected){
+  validate(record);const gated=active===ctx&&!switching;if(gated)gate(true,'Updating your account cache…');
+  try{let applied;
+  if(record.kind==='collection'){
+   const old=(await readMeta(ctx,'state'))||{revision:0,baselineRevision:0};
+   applied=await commit(ctx,['inventory','cardnexus','meta'],tx=>{for(const name of ['inventory','cardnexus']){const os=tx.objectStore(name);os.clear();for(const row of record.payload[name])os.put(row);}putLedgerMeta(tx.objectStore('meta'),'state',{...old,revision:(old.revision||0)+1,lastModified:new Date().toISOString()});},expected);
+  }else{
+   const l=clone(record.payload.record);l.id=key;l.name=record.name;
+   applied=await commit(ctx,'lists',tx=>tx.objectStore('lists').put(l),expected);
+  }
+  if(!applied)return false;
+  ctx.state.prefs[key]={name:record.name,visibility:record.visibility};await setBaseline(ctx,key,record);await persist(ctx);return true;
+  }finally{if(gated)gate(false);}
+ }
+ async function removeRecord(ctx,key,expected){
+  const gated=active===ctx&&!switching;if(gated)gate(true,'Updating your account cache…');
   try{
-   const response=await fetch(API+'/me',{credentials:'include',cache:'no-store',signal:AbortSignal.timeout(10000)});
-   if(version!==authVersion)return;
-   if(response.status===401){user=null;links={};$('ledgerAccountName').textContent='';$('ledgerAccountLogin').hidden=false;$('ledgerAccountSaves').hidden=true;$('ledgerCloudEditor').hidden=true;if(dialog.open)say('Log in at Sorcery.no to access your private saves.');return;}
-   if(!response.ok)throw new Error('Account unavailable');
-   const data=await response.json();if(version!==authVersion)return;
-   if(!data.authenticated||!data.user)throw new Error('Account unavailable');
-   const changed=user?.id!==data.user.id;user=data.user;
-   if(changed&&db){const accountId=user.id;const stored=await metaGet('ledger-cloud:'+accountId);if(version!==authVersion)return;links=stored;}
-   $('ledgerAccountName').textContent=user.display_name||'Sorcery.no account';$('ledgerAccountLogin').hidden=true;$('ledgerAccountSaves').hidden=false;$('ledgerCloudEditor').hidden=false;
-  }catch{$('ledgerAccountName').textContent='Account unavailable';}
+   let applied;
+   if(key==='collection'){
+    applied=await commit(ctx,['inventory','cardnexus'],tx=>{tx.objectStore('inventory').clear();tx.objectStore('cardnexus').clear()},expected);
+    if(!applied)return false;
+    delete ctx.state.links.collection;delete ctx.state.prefs.collection;const item=(await snapshots(ctx)).items.collection;ctx.state.links.collection={hash:item.hash};
+   }else{
+    applied=await commit(ctx,'lists',tx=>tx.objectStore('lists').delete(key),expected);if(!applied)return false;
+    delete ctx.state.links[key];delete ctx.state.prefs[key];
+   }
+   delete ctx.state.conflicts[key];delete ctx.state.createIds[key];delete ctx.state.attempts[key];await persist(ctx);return true;
+  }finally{if(gated)gate(false);}
  }
- function fillTargets(preferred=null){
-  const previous=preferred||target.value||'collection';target.replaceChildren();
-  const add=(value,label)=>{const option=document.createElement('option');option.value=value;option.textContent=label;target.appendChild(option)};
-  add('collection','Collection inventory');for(const l of ledgerLists)add(l.id,(l.kind==='deck'?'Deck: ':'List: ')+l.name);
-  target.value=[...target.options].some(o=>o.value===previous)?previous:'collection';selectTarget();
+ async function metadata(ctx){const data=await request('/ledger/documents');if(data.account_id!==ctx.user.id){ctx.verified=false;const e=new Error('The signed-in account changed. Reopening Ledger…');e.session=true;throw e;}ctx.documents=data.documents;return data.documents;}
+ async function recoverAttempt(ctx,key,doc){
+  const attempt=ctx.state.attempts[key];if(!attempt||attempt.id!==doc?.id||attempt.next!==doc.version)return false;
+  const record=(await request('/ledger/documents/'+doc.id)).document;
+  const hash=await fingerprint({kind:record.kind,name:record.name,visibility:record.visibility,payload:record.payload});
+  if(hash!==attempt.hash)return false;
+  ctx.state.links[key]={id:record.id,version:record.version,name:record.name,visibility:record.visibility,hash};
+  delete ctx.state.attempts[key];delete ctx.state.createIds[key];delete ctx.state.conflicts[key];await persist(ctx);return true;
+ }
+ async function pull(ctx,local){
+  const docs=await metadata(ctx),byId=new Map(docs.map(x=>[x.id,x]));let changed=false;
+  for(const [key,link] of Object.entries(ctx.state.links)){
+   if(!link.id)continue;const remote=byId.get(link.id);byId.delete(link.id);
+   if(remote&&remote.version===link.version)continue;
+   if(await recoverAttempt(ctx,key,remote))continue;
+   if(!remote&&local.deleted[key]){delete ctx.state.links[key];delete ctx.state.prefs[key];delete ctx.state.attempts[key];await persist(ctx);continue;}
+   if(local.pending[key]||local.deleted[key]){ctx.state.conflicts[key]={id:link.id,name:link.name||local.items[key]?.name||'Record',message:remote?'This record changed on another device.':'This record was deleted from your account.',deletedLocal:!!local.deleted[key]};continue;}
+   if(remote){try{const record=(await request('/ledger/documents/'+link.id)).document;const fresh=await scan(ctx);if(fresh.pending[key]||fresh.deleted[key]){ctx.state.conflicts[key]={id:link.id,name:link.name,message:'This record changed while you were editing it.'};continue;}if(await applyRecord(ctx,key,record,fresh.generation))changed=true;}catch(e){ctx.state.conflicts[key]={id:link.id,name:link.name,message:e.message,blocked:true};}}
+   else{const fresh=await scan(ctx);if(fresh.pending[key]){ctx.state.conflicts[key]={id:link.id,name:link.name,message:'This record was deleted while you were editing it.'};continue;}if(await removeRecord(ctx,key,fresh.generation))changed=true;}
+  }
+  for(const doc of byId.values()){
+   const attempted=Object.keys(ctx.state.attempts).find(key=>ctx.state.attempts[key].id===doc.id);
+   if(attempted&&await recoverAttempt(ctx,attempted,doc))continue;
+   if(doc.kind==='collection'&&ctx.state.links.collection?.id)continue;
+   const key=doc.kind==='collection'?'collection':doc.id;
+   if(local.pending[key]){ctx.state.conflicts[key]={id:doc.id,name:doc.name,message:'This device and your account both have changes.',};continue;}
+   try{const record=(await request('/ledger/documents/'+doc.id)).document;const fresh=await scan(ctx);if(fresh.pending[key]){ctx.state.conflicts[key]={id:doc.id,name:doc.name,message:'This record changed while you were editing it.'};continue;}if(await applyRecord(ctx,key,record,fresh.generation))changed=true;}catch(e){ctx.state.conflicts[key]={id:doc.id,name:doc.name,message:e.message,blocked:true};}
+  }
+  await persist(ctx);if(changed){notify(ctx);await repaint(ctx);}return changed;
+ }
+ async function upload(ctx,local){
+  for(const [key,link] of Object.entries(local.deleted)){
+   if(ctx.state.conflicts[key])continue;
+   try{await request('/ledger/documents/'+link.id,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:link.version,account_id:ctx.user.id})});}
+   catch(e){if(e.status!==404){if(e.status===409){ctx.state.conflicts[key]={id:link.id,name:link.name,message:e.message,deletedLocal:true};await persist(ctx);continue;}throw e;}}
+   delete ctx.state.links[key];delete ctx.state.prefs[key];delete ctx.state.createIds[key];await persist(ctx);
+  }
+  for(const [key,item] of Object.entries(local.pending)){
+   if(ctx.state.conflicts[key])continue;
+   const link=ctx.state.links[key];
+   const body={kind:item.kind,name:item.name,visibility:item.visibility,payload:item.payload,account_id:ctx.user.id};
+   if(link?.id)body.version=link.version;
+   else{body.id=ctx.state.createIds[key]||(ctx.state.createIds[key]=crypto.randomUUID());await persist(ctx);}
+   ctx.state.attempts[key]={id:link?.id||body.id,next:link?.id?link.version+1:1,hash:item.hash};await persist(ctx);
+   try{
+    const result=await request('/ledger/documents'+(link?.id?'/'+link.id:''),{method:link?.id?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    // Record the exact submitted snapshot. Edits made during upload stay pending.
+    ctx.state.links[key]={id:result.document.id,version:result.document.version,name:item.name,visibility:item.visibility,hash:item.hash};
+    delete ctx.state.createIds[key];delete ctx.state.attempts[key];await persist(ctx);notify(ctx);
+   }catch(e){
+    if(e.status===401||e.session)throw e;
+    if(e.status&&e.status<500){ctx.state.conflicts[key]={id:link?.id||body.id,name:item.name,message:e.message,blocked:e.status!==409};await persist(ctx);continue;}
+    throw e;
+   }
+  }
+ }
+ async function locked(ctx,fn){return navigator.locks?navigator.locks.request('ledger-sync:'+ctx.user.id,fn):fn();}
+ async function cycle(ctx,pullRemote=true){
+  if(!ctx?.user||!ctx.verified||!ctx.state.initialized||ctx!==active||switching)return;
+  if(ctx.flight)return ctx.flight;
+  ctx.running=true;status(ctx);
+  ctx.flight=locked(ctx,async()=>{
+   await reloadState(ctx);let local=await scan(ctx);
+   if(pullRemote||Object.keys(ctx.state.attempts).length)await pull(ctx,local);
+   if(ctx!==active||!ctx.verified||switching)return;
+   local=await scan(ctx);await upload(ctx,local);await scan(ctx);ctx.online=true;
+  }).catch(e=>{
+   ctx.online=false;text(e.message);
+   if(e.status===401||e.session){ctx.verified=false;queueMicrotask(()=>checkSession());}
+  }).finally(()=>{ctx.running=false;ctx.flight=null;status(ctx);if(ctx===active&&ctx.verified&&ctx.online&&ctx.state.pending.some(k=>!ctx.state.conflicts[k]))schedule(700);});
+  return ctx.flight;
+ }
+ function schedule(delay=700){if(!active?.user||switching)return;clearTimeout(timer);timer=setTimeout(()=>cycle(active,false),delay);if(active.online)$('ledgerSyncStatus').textContent='Saving…';}
+ async function importAnonymous(ctx,source){
+  const [inventory,cardnexus,lists,existing]=await Promise.all([all(source,'inventory'),all(source,'cardnexus'),all(source,'lists'),all(ctx,'lists')]);
+  const content=l=>({kind:l.kind,name:l.name,description:l.description||'',tags:l.tags||[],sortMode:l.sortMode||'',entries:l.entries||[],changelog:l.changelog||[]});
+  const known=new Set(await Promise.all(existing.map(l=>fingerprint(content(l))))),copies=[];
+  for(const record of lists){if(known.has(await fingerprint(content(record))))continue;const l=clone(record);l.id=crypto.randomUUID();copies.push(l);}
+  await commit(ctx,['inventory','cardnexus','lists'],tx=>{
+   for(const name of ['inventory','cardnexus'])tx.objectStore(name).clear();
+   for(const row of inventory)tx.objectStore('inventory').put(row);for(const row of cardnexus)tx.objectStore('cardnexus').put(row);for(const l of copies)tx.objectStore('lists').put(l);
+  });
+  ctx.state.prefs.collection={name:ctx.state.links.collection?.name||'My collection',visibility:'private'};
+  for(const l of copies)ctx.state.prefs[l.id]={name:l.name,visibility:'private'};
+ }
+ async function migrationChoice(hasAccountData){
+  const modal=$('ledgerMigrationDialog');
+  $('ledgerMigrationDetails').textContent=hasAccountData
+   ? 'Your browser and account both have Ledger data. Use your existing account data, or copy the browser data into your account. Copying replaces the account collection, makes it private, and adds lists and decks as private copies. Identical lists are skipped. Anonymous browser data stays separate.'
+   : 'This account has no saved Ledger data yet. Copy this browser’s collection, lists and decks into your account, or start with an empty account. Anonymous browser data stays separate.';
+  $('ledgerMigrationEmpty').textContent=hasAccountData?'Use existing account data':'Start with an empty account';
+  modal.showModal();return new Promise(resolve=>{
+   const finish=value=>{modal.close();resolve(value)};$('ledgerMigrationCopy').onclick=()=>finish(true);$('ledgerMigrationEmpty').onclick=()=>finish(false);modal.oncancel=e=>e.preventDefault();
+  });
+ }
+ async function bootstrap(ctx,anonymous){
+  await locked(ctx,async()=>{
+   await reloadState(ctx);if(ctx.state.initialized)return;
+   const docs=await metadata(ctx);
+   if(docs.length){let collection=false;for(const doc of docs){if(doc.kind==='collection'&&collection)continue;const key=doc.kind==='collection'?'collection':doc.id;try{await applyRecord(ctx,key,(await request('/ledger/documents/'+doc.id)).document);if(doc.kind==='collection')collection=true;}catch(e){ctx.state.conflicts[key]={id:doc.id,name:doc.name,message:e.message,blocked:true};}}}
+   const [inventory,lists]=await Promise.all([all(anonymous,'inventory'),all(anonymous,'lists')]);
+   if((inventory.length||lists.length)&&await migrationChoice(docs.length>0))await importAnonymous(ctx,anonymous);
+   ctx.state.initialized=true;await scan(ctx);await persist(ctx);
+  });
+ }
+ async function switchAccount(user,verified=true){
+  const name=user?DB_NAME+'-account-'+user.id:DB_NAME;
+  if(active?.db.name===name){active.user=user;active.verified=verified;active.online=verified;status();return;}
+  switching=true;clearTimeout(timer);gate(true,user?'Opening your account Ledger…':'Opening local-only Ledger…');status();
+  try{
+   const old=active;if(old?.flight)await old.flight;
+   const anonymous=contexts.get(DB_NAME);
+   const ctx=user?await accountContext(user,name):anonymous;
+   ctx.user=user;ctx.verified=verified;ctx.online=verified;
+   active=ctx;db=ctx.db;activeListId=null;pinnedDeckCard=null;pinnedListCard=null;
+   if(user&&verified)try{await bootstrap(ctx,anonymous)}catch(e){ctx.online=false;text(e.message);}
+   meta=(await getMeta())||{revision:0,baselineRevision:0,lastModified:null,lastExported:null};
+   await reloadInventory();await loadLists();refreshStats();updateStatus();applyFilters();
+   remember(user);notify(ctx);
+  }finally{switching=false;gate(false);status();}
+ }
+ async function checkSession(){
+  if(sessionCheck)return sessionCheck;
+  sessionCheck=(async()=>{
+   try{
+    const data=await request('/me');
+    const user=data.user;
+    if(!user?.id)throw new Error('Invalid account response.');
+    await switchAccount(user,true);
+    if(active.user&&!active.state.initialized)await bootstrap(active,contexts.get(DB_NAME));
+    await cycle(active,true);
+   }catch(e){
+    if(e.status===401)await switchAccount(null);
+    else{if(active?.user){active.verified=false;active.online=false;}text(e.message);status();}
+   }
+  })().finally(()=>{sessionCheck=null});return sessionCheck;
+ }
+ async function start(){
+  const anonymous={user:null,db,raw:db.transaction.bind(db),state:emptyState(),verified:false,online:false};contexts.set(DB_NAME,anonymous);active=anonymous;
+  gate(true,'Checking your Sorcery.no account…');
+  try{
+   const data=await request('/me');await switchAccount(data.user,true);
+  }catch(e){
+   if(e.status===401){remember(null);}
+   else{const saved=remembered();if(saved?.id&&/^[a-f0-9-]{36}$/i.test(saved.id))await switchAccount(saved,false);text(e.message);}
+  }finally{ready=true;gate(false);status();}
+  if(active.user&&active.verified)cycle(active,true);
+  openShared();
+ }
+ function fillTargets(){
+  const select=$('ledgerCloudTarget'),previous=select.value||activeListId||'collection';select.replaceChildren();
+  const add=(value,label)=>{const option=document.createElement('option');option.value=value;option.textContent=label;select.appendChild(option)};
+  add('collection','Collection');for(const l of ledgerLists)add(l.id,(l.kind==='deck'?'Deck: ':'List: ')+l.name);
+  select.value=[...select.options].some(o=>o.value===previous)?previous:'collection';selectTarget();
  }
  function selectTarget(){
-  const key=target.value,l=ledgerLists.find(x=>x.id===key),link=links[key];
-  $('ledgerCloudName').value=link?.name||(l?l.name:'My collection');
-  $('ledgerCloudVisibility').value=link?.visibility||'private';
-  $('ledgerCloudSave').textContent=link?'Update account save':'Save to account';visibilityNote();
+  if(!active?.user)return;const key=$('ledgerCloudTarget').value,l=ledgerLists.find(x=>x.id===key),pref=active.state.prefs[key],link=active.state.links[key];
+  $('ledgerCollectionNameLabel').hidden=key!=='collection';$('ledgerCloudName').value=pref?.name||link?.name||'My collection';
+  $('ledgerCloudVisibility').value=pref?.visibility||link?.visibility||'private';
+  const value=$('ledgerCloudVisibility').value;$('ledgerVisibilityNote').textContent=value==='private'?'Only your account can read this record.':'The entire record, including notes and changelogs, is accessible '+(value==='unlisted'?'to anyone with the link. It is excluded from public discovery.':'to everyone and included in public discovery.');
+  $('ledgerCloudShareURL').hidden=true;
  }
- function visibilityNote(){const value=$('ledgerCloudVisibility').value;$('ledgerVisibilityNote').textContent=value==='private'?'Private saves are only accessible to your account.':value==='unlisted'?'Anyone with the link can read the entire saved record, including notes and changelogs. It is excluded from public discovery.':'Everyone can read this save, including notes and changelogs. It is included in public discovery.';}
- async function withBusy(action){
-  if(busy)return;busy=true;dialog.setAttribute('aria-busy','true');
-  dialog.querySelectorAll('button,select,input').forEach(el=>{if(el.id!=='ledgerAccountClose')el.disabled=true});
-  try{await action()}catch(error){say(error.message||'Account request failed. Your local data has been kept.');}
-  finally{busy=false;dialog.removeAttribute('aria-busy');dialog.querySelectorAll('button,select,input').forEach(el=>el.disabled=false);}
+ async function preferences(){
+  const ctx=active,key=$('ledgerCloudTarget').value;if(!ctx?.user)return;
+  const name=$('ledgerCloudName').value.trim();if(key==='collection'&&!name){text('Give your collection a name.');return;}
+  await locked(ctx,async()=>{await reloadState(ctx);ctx.state.prefs[key]={name:key==='collection'?name:ledgerLists.find(l=>l.id===key)?.name,visibility:$('ledgerCloudVisibility').value};await persist(ctx);});selectTarget();schedule(0);
  }
- async function snapshot(key){
-  if(key==='collection'){
-   const tx=db.transaction(['inventory','cardnexus'],'readonly');
-   const read=name=>new Promise((resolve,reject)=>{const r=tx.objectStore(name).getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
-   const [inventory,cardnexus]=await Promise.all([read('inventory'),read('cardnexus')]);
-   return {kind:'collection',payload:{format:'ledger-account-collection',schemaVersion:1,inventory,cardnexus}};
-  }
-  const l=await getOne('lists',key);if(!l)throw new Error('This local list no longer exists. Reopen account saves.');
-  return {kind:l.kind,payload:{format:'ledger-account-record',schemaVersion:1,record:JSON.parse(JSON.stringify(l))}};
+ async function copyLink(){
+  const ctx=active,key=$('ledgerCloudTarget').value;await cycle(ctx,true);
+  if(ctx!==active)return;const link=ctx.state.links[key];
+  if(ctx.state.conflicts[key]){text('Resolve the save conflict before sharing.');return;}
+  if(!link?.id||ctx.state.pending.includes(key)||!ctx.online){text('Reconnect and wait for this record to finish saving before sharing.');return;}
+  if(link.visibility==='private'){text('Choose Unlisted or Public before sharing.');return;}
+  const url=location.origin+location.pathname+'#cloud='+link.id;const field=$('ledgerCloudShareURL');field.value=url;field.hidden=false;
+  try{await navigator.clipboard.writeText(url);text('Share link copied. Future saved updates use the same link.');}catch{field.focus();field.select();text('Select and copy the link.');}
  }
- async function save(newCopy){
-  if(!user)throw new Error('Log in at Sorcery.no first.');const accountId=user.id,key=target.value;
-  const name=$('ledgerCloudName').value.trim(),visibility=$('ledgerCloudVisibility').value;
-  if(!name)throw new Error('Give your account save a name.');
-  const data=await snapshot(key);checkAccount(accountId);
-  const link=newCopy?null:links[key];
-  const body={...data,name,visibility,account_id:accountId};if(link)body.version=link.version;
-  // Snapshot capture happens before the network request; later local edits remain local.
-  say('Saving to your account…');
-  const result=await api('/ledger/documents'+(link?'/'+link.id:''),{method:link?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-  checkAccount(accountId);links[key]={id:result.document.id,version:result.document.version,name,visibility};
-  await storeLinks(accountId);selectTarget();await showRecords();say('Saved to your account. Later edits require another save.');
- }
- function cloudLink(record){return location.origin+location.pathname+'#cloud='+record.id;}
- function showShare(record){
-  if(record.visibility==='private'){say('This save is private. Choose unlisted or public and save before sharing.');return;}
-  $('ledgerCloudShareURL').value=cloudLink(record);$('ledgerCloudShare').hidden=false;
-  $('ledgerCloudShareURL').focus();$('ledgerCloudShareURL').select();say('This link opens the current account save. Updates to that save appear at the same link.');
- }
- function recordRow(record){
-  const row=document.createElement('div');row.className='accountrecord';
-  const label=document.createElement('div');const title=document.createElement('strong');title.textContent=record.name;label.appendChild(title);
-  const info=document.createElement('small');info.textContent=`${record.kind} · ${record.visibility} · version ${record.version} · ${new Date(record.updated_at).toLocaleString()}`;label.appendChild(info);row.appendChild(label);
-  const actions=document.createElement('div');actions.className='accountactions';
-  const button=(text,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.onclick=()=>withBusy(fn);actions.appendChild(b)};
-  button('Load',()=>loadDocument(record.id));
-  if(record.visibility!=='private')button('Share link',async()=>showShare(record));
-  if(record.owned!==false)button('Delete account save',async()=>{
-   if(!confirm(`Delete account save “${record.name}”? Local copies will remain.`))return;
-   const accountId=user?.id;checkAccount(accountId);
-   await api('/ledger/documents/'+record.id,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:record.version,account_id:accountId})});
-   checkAccount(accountId);for(const key of Object.keys(links))if(links[key].id===record.id)delete links[key];
-   await storeLinks(accountId);selectTarget();await showRecords();say('Account save deleted. Local copies were kept.');
-  });
-  row.appendChild(actions);return row;
- }
- async function showRecords(){
-  if(!user){$('ledgerCloudRecords').replaceChildren();return;}
-  const accountId=user.id,data=await api('/ledger/documents');checkAccount(accountId);if(data.account_id!==accountId)throw new Error('The signed-in account changed. Reopen account saves.');
-  const host=$('ledgerCloudRecords');host.replaceChildren();
-  if(!data.documents.length){const p=document.createElement('p');p.className='accounthelp';p.textContent='No account saves yet.';host.appendChild(p)}
-  for(const record of data.documents)host.appendChild(recordRow(record));
- }
- function restoreCollection(payload){
-  return new Promise((resolve,reject)=>{
-   const now=new Date().toISOString(),nextMeta={...meta,revision:meta.revision+1,lastModified:now};
-   const tx=db.transaction(['inventory','cardnexus','meta'],'readwrite');
-   for(const name of ['inventory','cardnexus']){const os=tx.objectStore(name);os.clear();for(const row of payload[name])os.put(row)}
-   putLedgerMeta(tx.objectStore('meta'),'state',nextMeta);
-   tx.oncomplete=()=>{meta=nextMeta;resolve()};tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('Collection restore failed'));
-  });
- }
- function validateLoad(record){
-  const p=record.payload;if(p?.schemaVersion!==1)throw new Error('Unsupported account save format.');
-  if(record.kind==='collection'){
-   if(!Array.isArray(p.inventory)||!Array.isArray(p.cardnexus))throw new Error('Invalid collection save.');
-   const known=new Set(cards.flatMap(c=>c.variants.map(v=>v.slug))),missing=p.inventory.filter(row=>!known.has(row.slug));
-   if(missing.length)throw new Error(`Load stopped: ${missing.length} printing(s) are missing from this catalogue. Local inventory was kept.`);
-  }else{
-   if(!p.record||!Array.isArray(p.record.entries))throw new Error('Invalid list or deck save.');
-   const missing=p.record.entries.filter(row=>!cardById(row.cardId));
-   if(missing.length)throw new Error(`Load stopped: ${missing.length} card(s) are missing from this catalogue. Local data was kept.`);
+ function renderConflicts(){
+  const host=$('ledgerSyncConflicts');host.replaceChildren();if(!active?.user)return;
+  for(const [key,conflict] of Object.entries(active.state.conflicts)){
+   const row=document.createElement('div');row.className='accountrecord';const heading=document.createElement('strong');heading.textContent=conflict.name||'Saved record';row.appendChild(heading);
+   const note=document.createElement('p');note.textContent=conflict.message;row.appendChild(note);const actions=document.createElement('div');actions.className='accountactions';
+   const add=(label,mode)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.onclick=()=>resolveConflict(key,mode);actions.appendChild(b)};
+   add('Use account version (replace local)','remote');add(conflict.deletedLocal?'Keep my deletion':'Keep this device’s version','local');if(!conflict.deletedLocal)add('Save this device’s version separately','copy');
+   row.appendChild(actions);host.appendChild(row);
   }
  }
- async function loadDocument(id){
-  say('Loading account save…');const accountId=user?.id;
-  const {document:record}=await api('/ledger/documents/'+id);validateLoad(record);
-  if(record.owned)checkAccount(accountId);
-  let key;
-  if(record.kind==='collection'){
-   if(!confirm(`Replace this browser’s collection inventory with “${record.name}”? Export a backup first if you want to keep the current inventory. Lists and decks will stay as they are.`)){say('Load cancelled.');return;}
-   await restoreCollection(record.payload);await reloadInventory();refreshStats();updateStatus();applyFilters();key='collection';
-  }else{
-   if(!confirm(`Load “${record.name}” as a new local ${record.kind} copy? Existing lists and decks will be kept.`)){say('Load cancelled.');return;}
-   const l=JSON.parse(JSON.stringify(record.payload.record));l.id=makeId();l.name=record.name;l.updatedAt=new Date().toISOString();
-   activeListId=l.id;await saveList(l);key=l.id;
-   document.querySelector('[data-view="listsView"]').click();
-  }
-  if(record.owned){checkAccount(accountId);links[key]={id:record.id,version:record.version,name:record.name,visibility:record.visibility};await storeLinks(accountId);}
-  else if(user){delete links[key];await storeLinks(user.id);}
-  // Non-owned shares never acquire permission to update their source record.
-  fillTargets(key);say('Loaded into this browser. Edits remain local until saved to your account.');
+ async function resolveConflict(key,mode){
+  const ctx=active;if(!ctx?.verified){text('Reconnect and log in before resolving conflicts.');return;}
+  try{await locked(ctx,async()=>{
+   await reloadState(ctx);const conflict=ctx.state.conflicts[key];if(!conflict)return;
+   let remote=null;try{remote=(await request('/ledger/documents/'+conflict.id)).document;}catch(e){if(e.status!==404)throw e;}
+   if(mode==='remote'){if(remote)await applyRecord(ctx,key,remote);else await removeRecord(ctx,key);}
+   else if(mode==='copy'){
+    const {items}=await snapshots(ctx),item=items[key];if(!item)throw new Error('Local record no longer exists.');
+    if(key==='collection'){delete ctx.state.links[key];ctx.state.createIds[key]=crypto.randomUUID();}
+    else{const l=clone(item.payload.record);l.id=crypto.randomUUID();l.name=(l.name+' (local copy)').slice(0,100);await commit(ctx,'lists',tx=>tx.objectStore('lists').put(l));ctx.state.prefs[l.id]={visibility:'private',name:l.name};if(remote)await applyRecord(ctx,key,remote);else await removeRecord(ctx,key);}
+    delete ctx.state.conflicts[key];
+   }else{
+    if(remote){const link=ctx.state.links[key]||{};ctx.state.links[key]={...link,id:remote.id,version:remote.version,hash:''};}
+    else if(conflict.deletedLocal){delete ctx.state.links[key];}else{delete ctx.state.links[key];ctx.state.createIds[key]=crypto.randomUUID();}
+    delete ctx.state.conflicts[key];
+   }
+   await persist(ctx);
+  });await repaint(ctx);await cycle(ctx,false);renderConflicts();text('Conflict choice applied.');}catch(e){text(e.message)}
  }
- async function openPanel(){
-  if(!ready){say('Ledger is still loading.');return;}
-  dialog.showModal();say('Checking your account…');await refreshAccount();
-  fillTargets(document.getElementById('listsView').hidden?'collection':activeListId);
-  if(user)await withBusy(async()=>{await showRecords();say('Choose what to save, or load an account save below.');});
-  else say('Log in at Sorcery.no to access your account saves.');
+ async function extraCollections(){
+  const host=$('ledgerExtraCollections');host.replaceChildren();const ctx=active;if(!ctx?.verified)return;
+  try{const docs=await metadata(ctx);for(const doc of docs.filter(x=>x.kind==='collection'&&x.id!==ctx.state.links.collection?.id)){
+   const row=document.createElement('div');row.className='accountrecord';const label=document.createElement('strong');label.textContent=doc.name+' (other saved collection)';row.appendChild(label);
+   const button=document.createElement('button');button.textContent='Use this collection';button.onclick=async()=>{
+    if(!confirm('Replace the current account collection on this device with “'+doc.name+'”? Pending changes remain in the cache until saved; wait for Saved to account first.'))return;
+    try{await cycle(ctx,true);if(ctx.state.pending.includes('collection')||ctx.state.conflicts.collection)throw new Error('Resolve or save the current collection changes first.');await locked(ctx,async()=>{await reloadState(ctx);await applyRecord(ctx,'collection',(await request('/ledger/documents/'+doc.id)).document)});await repaint(ctx);await extraCollections();text('Switched account collection.');}catch(e){text(e.message)}
+   };row.appendChild(button);host.appendChild(row);
+  }}catch(e){text(e.message)}
  }
- async function openCloudHash(){
-  const match=location.hash.match(/^#cloud=([a-f0-9-]+)$/i);if(!ready||!match||!uuid.test(match[1])||openHash===match[1])return;
-  openHash=match[1];if(!dialog.open)dialog.showModal();
-  await refreshAccount();
-  await withBusy(async()=>{
-   say('Opening shared account save…');
-   const {document:record}=await api('/ledger/documents/'+match[1]);
-   $('ledgerCloudRecords').replaceChildren(recordRow(record));say(record.owned?'This is your account save. Load it to edit a local copy.':'Shared save. Load it to create your own local copy.');
-  });
+ async function openPanel(){if(!ready||!active?.user)return;if(!dialog.open)dialog.showModal();fillTargets();status();await extraCollections();}
+ async function openShared(){
+  if(!ready)return;const match=location.hash.match(/^#cloud=([a-f0-9-]{36})$/i);if(!match)return;
+  try{shared=(await request('/ledger/documents/'+match[1])).document;validate(shared);$('ledgerSharedTitle').textContent=shared.name;$('ledgerSharedDetails').textContent=shared.kind+' · '+shared.visibility+'. Add a copy to edit it in your own Ledger.';$('ledgerSharedDialog').showModal();}catch(e){if(active?.user)text(e.message);alert('Could not open shared record: '+e.message)}
  }
- $('ledgerAccountSaves').onclick=openPanel;
- $('ledgerAccountClose').onclick=()=>dialog.close();
- dialog.addEventListener('cancel',e=>{if(busy)e.preventDefault()});
- target.onchange=selectTarget;$('ledgerCloudVisibility').onchange=visibilityNote;
- $('ledgerCloudSave').onclick=()=>withBusy(()=>save(false));$('ledgerCloudSaveCopy').onclick=()=>withBusy(()=>save(true));
- $('ledgerCloudRefresh').onclick=()=>withBusy(async()=>{await showRecords();say('Account saves refreshed.');});
- $('ledgerCloudCopyLink').onclick=async()=>{try{await navigator.clipboard.writeText($('ledgerCloudShareURL').value);say('Link copied.');}catch{$('ledgerCloudShareURL').focus();$('ledgerCloudShareURL').select();say('Select and copy the link.');}};
- const previousLoad=loadLists;
- loadLists=async function(...args){const result=await previousLoad.apply(this,args);if(!ready&&db&&cards.length){ready=true;refreshAccount().then(openCloudHash);}return result;};
- if(db&&cards.length){ready=true;refreshAccount().then(openCloudHash);}
- window.addEventListener('focus',()=>{if(ready)refreshAccount()});
- window.addEventListener('hashchange',()=>{openHash=null;openCloudHash()});
+ async function importShared(){
+  if(!shared)return;const ctx=active,record=shared;validate(record);
+  try{
+   if(record.kind==='collection'){
+    if(!confirm('Replace the current collection with this shared collection? '+(ctx.user?'The result will automatically update your account collection.':'The result stays local.')))return;
+    // Collection shares copy the inventory into the current collection, retaining
+    // its current visibility. They never grant ownership of the source.
+    await commit(ctx,['inventory','cardnexus'],tx=>{for(const name of ['inventory','cardnexus']){tx.objectStore(name).clear();for(const row of record.payload[name])tx.objectStore(name).put(row)}});
+   }else{const l=clone(record.payload.record);l.id=crypto.randomUUID();l.name=record.name;await commit(ctx,'lists',tx=>tx.objectStore('lists').put(l));activeListId=l.id;}
+   await repaint(ctx);$('ledgerSharedDialog').close();notify(ctx);schedule(0);
+  }catch(e){alert(e.message)}
+ }
+ $('ledgerAccountSaves').onclick=openPanel;$('ledgerAccountClose').onclick=()=>dialog.close();
+ $('ledgerCloudTarget').onchange=selectTarget;$('ledgerCloudVisibility').onchange=()=>preferences().catch(e=>text(e.message));$('ledgerCloudName').onchange=()=>preferences().catch(e=>text(e.message));
+ $('ledgerCloudCopyLink').onclick=copyLink;$('ledgerSyncRetry').onclick=async()=>{await checkSession();await openPanel()};
+ $('ledgerSharedClose').onclick=()=>{$('ledgerSharedDialog').close();shared=null};$('ledgerSharedImport').onclick=importShared;
+ window.addEventListener('online',()=>{if(ready)checkSession()});window.addEventListener('focus',()=>{if(ready)checkSession()});
+ window.addEventListener('hashchange',openShared);
+ document.addEventListener('visibilitychange',()=>{if(ready&&document.visibilityState==='visible')checkSession()});
+ channel?.addEventListener('message',event=>{if(ready&&active?.user?.id===event.data.account&&!switching){repaint(active);schedule(300)}});
+ setInterval(()=>{if(ready&&document.visibilityState==='visible')checkSession()},30000);
+ async function shareRecord(record){await openPanel();$('ledgerCloudTarget').value=record.id;selectTarget();text('Choose Unlisted or Public, then Copy share link.');}
+ const earlierRender=renderListWorkspace;
+ renderListWorkspace=function(...args){const result=earlierRender.apply(this,args),record=ledgerLists.find(x=>x.id===activeListId),exportButton=$('listExportBtn');if(active?.user&&record?.kind==='list'&&exportButton&&!$('accountListShare')){const button=document.createElement('button');button.id='accountListShare';button.type='button';button.textContent='Share list';button.onclick=()=>shareRecord(record);exportButton.before(button);}return result;};
+ window.LedgerSync={start,signedIn:()=>!!active?.user,shareRecord};
 })();
 </script>
 
