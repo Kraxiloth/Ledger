@@ -389,7 +389,7 @@ function setCardImage(img,slug,onFinalError=null){
   img.dataset.fallbackTried='1';
   img.src=fallbackImageUrl(slug);
  };
- setCardImage(img,slug);
+ img.src=imageUrl(slug);
 }
 function imageFallbackAttr(slug){
  return `onerror="if(this.dataset.fallbackTried==='1'){this.onerror=null;return}this.dataset.fallbackTried='1';this.src='${fallbackImageUrl(slug)}'"`;
