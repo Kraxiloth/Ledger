@@ -377,19 +377,22 @@ document.addEventListener('mouseover',e=>{const a=e.target.closest?.('.cardprice
 
 function imageUrl(slug){return IMAGE_BASE+encodeURIComponent(slug)+'.png'}
 function fallbackImageUrl(slug){return IMAGE_FALLBACK_BASE+encodeURIComponent(slug)+'.png'}
-function loadCardImage(img,slug,onFinalError=null){
+function setCardImage(img,slug,onFinalError=null){
  if(!img||!slug)return;
+ img.dataset.fallbackTried='0';
  img.onerror=()=>{
-  if(img.dataset.imageFallback==='1'){
+  if(img.dataset.fallbackTried==='1'){
    img.onerror=null;
    if(onFinalError)onFinalError();
    return;
   }
-  img.dataset.imageFallback='1';
+  img.dataset.fallbackTried='1';
   img.src=fallbackImageUrl(slug);
  };
- img.dataset.imageFallback='0';
- loadCardImage(img.src.split('.')[0],slug);
+ setCardImage(img,slug);
+}
+function imageFallbackAttr(slug){
+ return `onerror="if(this.dataset.fallbackTried==='1'){this.onerror=null;return}this.dataset.fallbackTried='1';this.src='${fallbackImageUrl(slug)}'"`;
 }
 function variantLabel(v){return `${v.set} · ${v.finish}${(inv.get(v.slug)||0)>0?` (${inv.get(v.slug)} owned)`:''}`}
 function qualifyingVariants(c){
@@ -636,7 +639,7 @@ function applyFilters(){
 }
 
 function openInspector(card,variant){
- const img=$('inspectImg');loadCardImage(img.src.split('.')[0],variant.slug);
+ const img=$('inspectImg');setCardImage(img,variant.slug);
  img.alt=`${card.name} — ${variant.set} ${variant.finish}`;
  img.classList.toggle('site',card.type==='Site');
  $('inspectBack').classList.add('open');$('inspectBack').setAttribute('aria-hidden','false');
@@ -668,7 +671,7 @@ function renderMore(){
   sel.value=selected.slug;
   function show(v){
    selected=v;input.value=inv.get(v.slug)||0;
-   img.style.display='block';ph.style.display='none';loadCardImage(img.src.split('.')[0],v.slug);const priceHost=d.querySelector('.pricehost');if(priceHost)priceHost.innerHTML=priceHTML(v.slug);
+   img.style.display='block';ph.style.display='none';setCardImage(img,v.slug,()=>{img.style.display='none';ph.style.display='grid'});const priceHost=d.querySelector('.pricehost');if(priceHost)priceHost.innerHTML=priceHTML(v.slug);
    img.onload=()=>{ph.style.display='none';img.style.display='block'};
    img.onerror=()=>{img.style.display='none';ph.style.display='block'};
   }
@@ -970,7 +973,7 @@ function buildSamplePool(l,zone){const pool=[];for(const e of l.entries||[]){if(
 function takeSampleCards(state,zone,count){const pool=zone==='spellbook'?state.spellPool:state.sitePool;for(let i=0;i<count&&pool.length;i++)state.hand.push({...pool.pop(),handId:`sample-${state.nextId++}`})}
 function resetSampleHand(l){const state={signature:sampleDeckSignature(l),spellPool:buildSamplePool(l,'spellbook'),sitePool:buildSamplePool(l,'atlas'),hand:[],nextId:1};sampleHands.set(l.id,state);takeSampleCards(state,'spellbook',3);takeSampleCards(state,'atlas',3);return state}
 function ensureSampleHand(l){const state=sampleHands.get(l.id),signature=sampleDeckSignature(l);return !state||state.signature!==signature?resetSampleHand(l):state}
-function sampleCardHTML(l,item,index=0){const c=cardById(item.cardId);if(!c)return'';const e=deckEntry(l,item.cardId,item.zone),v=(e?.variantSlug&&c.variants.find(x=>x.slug===e.variantSlug))||preferredVariant(c)||c.variants[0],site=item.zone==='atlas'||c.type==='Site';return `<button type="button" class="samplecard${site?' site':''}" data-sample-card="${esc(item.handId)}" style="--hand-index:${index+1}" title="Discard ${esc(c.name)}" aria-label="Discard ${esc(c.name)}"><span class="samplecardart">${v?`<img src="${esc(imageUrl(v.slug))}" alt="${esc(c.name)}">`:''}</span><span class="samplecardname">${esc(c.name)}</span></button>`}
+function sampleCardHTML(l,item,index=0){const c=cardById(item.cardId);if(!c)return'';const e=deckEntry(l,item.cardId,item.zone),v=(e?.variantSlug&&c.variants.find(x=>x.slug===e.variantSlug))||preferredVariant(c)||c.variants[0],site=item.zone==='atlas'||c.type==='Site';return `<button type="button" class="samplecard${site?' site':''}" data-sample-card="${esc(item.handId)}" style="--hand-index:${index+1}" title="Discard ${esc(c.name)}" aria-label="Discard ${esc(c.name)}"><span class="samplecardart">${v?`<img src="${esc(imageUrl(v.slug))}" ${imageFallbackAttr(v.slug)} alt="${esc(c.name)}">`:''}</span><span class="samplecardname">${esc(c.name)}</span></button>`}
 function sampleHandHTML(l){const state=ensureSampleHand(l);return `<section class="samplehand" aria-labelledby="sampleHandHeading"><div class="samplehandhead"><div><h3 id="sampleHandHeading">Sample hand</h3><div class="samplehandnote">Click a card to discard it from this sample hand.</div></div><div class="samplehandstatus" id="sampleHandStatus"></div></div><div class="samplehandcontrols"><button type="button" id="drawSampleSpell">Draw spell</button><button type="button" id="drawSampleSite">Draw site</button><button type="button" id="resetSampleHand">↻ Reset</button></div><div class="samplehandcards" id="sampleHandCards">${state.hand.map((item,index)=>sampleCardHTML(l,item,index)).join('')}</div></section>`}
 function fitSampleHand(host,count){requestAnimationFrame(()=>{if(!host?.isConnected||count<2)return host?.style.setProperty('--hand-overlap','0px');const first=host.querySelector('.samplecard');if(!first)return;const style=getComputedStyle(host),available=host.clientWidth-(parseFloat(style.paddingLeft)||0)-(parseFloat(style.paddingRight)||0)-6,width=first.getBoundingClientRect().width,needed=(count*width-available)/(count-1),overlap=Math.max(12,Math.min(width-28,needed));host.style.setProperty('--hand-overlap',`${Math.max(0,overlap)}px`)})}
 function renderSampleHandCards(l){const state=ensureSampleHand(l),host=$('sampleHandCards'),status=$('sampleHandStatus');if(!host||!status)return;host.innerHTML=state.hand.length?state.hand.map((item,index)=>sampleCardHTML(l,item,index)).join(''):'<div class="samplehandempty"><b>Your sample hand is empty.</b>Draw a spell or Site, or reset the hand.</div>';fitSampleHand(host,state.hand.length);status.textContent=`${state.hand.length} in hand · ${state.spellPool.length} spells · ${state.sitePool.length} Sites remaining`;const spell=$('drawSampleSpell'),site=$('drawSampleSite');if(spell)spell.disabled=!state.spellPool.length;if(site)site.disabled=!state.sitePool.length;host.querySelectorAll('[data-sample-card]').forEach(button=>button.onclick=()=>{state.hand=state.hand.filter(item=>item.handId!==button.dataset.sampleCard);renderSampleHandCards(l)})}
@@ -983,13 +986,13 @@ function previewDeckCard(c,l){
  const mz=mainZone(c),main=deckEntry(l,c.id,mz),coll=deckEntry(l,c.id,'collection'),maybe=deckEntry(l,c.id,'maybeboard');
  const displayEntry=main||coll||maybe; if(displayEntry)normalizeDeckEntry(displayEntry,c);
  const v=(displayEntry?.variantSlug&&c.variants.find(x=>x.slug===displayEntry.variantSlug))||preferredVariant(c)||c.variants[0];
- if(v){loadCardImage(img.src.split('.')[0],v.slug);img.alt=c.name;img.classList.toggle('site',c.type==='Site');img.onclick=()=>openInspector(c,v)}else{img.removeAttribute('src');img.onclick=null;}
+ if(v){setCardImage(img,v.slug);img.alt=c.name;img.classList.toggle('site',c.type==='Site');img.onclick=()=>openInspector(c,v)}else{img.removeAttribute('src');img.onclick=null;}
  $('deckPreviewName').textContent=c.name;$('deckPreviewMeta').textContent=[c.rarity,c.type].filter(Boolean).join(' · ');const price=$('deckPreviewPrice');if(price)price.innerHTML=v?`Market price · ${priceHTML(v.slug)}`:'';
  const mainQ=Number(main?.quantity)||0,collQ=Number(coll?.quantity)||0,maybeQ=Number(maybe?.quantity)||0,o=ownedCanonical(c),needed=mainQ+collQ;
  $('deckPreviewOwned').textContent=`Owned ${o} · Deck + Collection ${needed}${o<needed?` · Missing ${needed-o}`:' · Available'}`;
  renderDeckConfig(c,l);
 }
-function previewListCard(c,l){if(!c)return;const e=(l.entries||[]).find(x=>x.cardId===c.id);if(!e)return;pinnedListCard=c.id;normalizeListEntry(e,c);const img=$('deckPreviewImg');if(!img)return;const v=(e.preferredPrinting&&c.variants.find(x=>x.slug===e.preferredPrinting))||preferredVariant(c)||c.variants[0];if(v){loadCardImage(img.src.split('.')[0],v.slug);img.alt=c.name;img.classList.toggle('site',c.type==='Site');img.onclick=()=>openInspector(c,v)}else{img.removeAttribute('src');img.onclick=null}$('deckPreviewName').textContent=c.name;$('deckPreviewMeta').textContent=[c.rarity,c.type].filter(Boolean).join(' · ');const q=Number(e.quantity)||0,o=ownedCanonical(c);$('deckPreviewOwned').textContent=`Owned ${o} · Required ${q}${o<q?` · Missing ${q-o}`:' · Available'}`;const price=$('deckPreviewPrice');if(price)price.innerHTML=v?`Market price · ${priceHTML(v.slug)}`:'';renderListConfig(c,l,e)}
+function previewListCard(c,l){if(!c)return;const e=(l.entries||[]).find(x=>x.cardId===c.id);if(!e)return;pinnedListCard=c.id;normalizeListEntry(e,c);const img=$('deckPreviewImg');if(!img)return;const v=(e.preferredPrinting&&c.variants.find(x=>x.slug===e.preferredPrinting))||preferredVariant(c)||c.variants[0];if(v){setCardImage(img,v.slug);img.alt=c.name;img.classList.toggle('site',c.type==='Site');img.onclick=()=>openInspector(c,v)}else{img.removeAttribute('src');img.onclick=null}$('deckPreviewName').textContent=c.name;$('deckPreviewMeta').textContent=[c.rarity,c.type].filter(Boolean).join(' · ');const q=Number(e.quantity)||0,o=ownedCanonical(c);$('deckPreviewOwned').textContent=`Owned ${o} · Required ${q}${o<q?` · Missing ${q-o}`:' · Available'}`;const price=$('deckPreviewPrice');if(price)price.innerHTML=v?`Market price · ${priceHTML(v.slug)}`:'';renderListConfig(c,l,e)}
 function renderDeckConfig(c,l){const host=$('deckConfig');if(!host)return;const mz=mainZone(c),zones=[[mz,'Main deck'],['collection','Collection'],['maybeboard','Maybeboard']];let html='<div class="deckconfig">';for(const [z,label] of zones){const e=deckEntry(l,c.id,z),q=Number(e?.quantity)||0,max=z==='avatar'?1:(z==='collection'?10:'');html+=`<div class="zonecontrols"><span>${label}</span><div class="entryqty"><button type="button" data-zone-minus="${z}" ${q<=0?'disabled':''}>−</button><input class="zoneqtyinput" data-zone-qty="${z}" type="number" min="0" ${max!==''?`max="${max}"`:''} value="${q}" aria-label="${label} quantity"><button type="button" data-zone-plus="${z}">+</button></div></div>`}const active=deckEntry(l,c.id,mz)||deckEntry(l,c.id,'collection')||deckEntry(l,c.id,'maybeboard');if(active){normalizeDeckEntry(active,c);html+=`<div class="printblock"><div class="printlabel">Default printing · play / export art</div><select class="printselect" id="defaultPrint">${variantOptions(c,active.variantSlug)}</select><div class="printlabel">Physical copies · ${deckZoneLabel(active.zone)}</div>`;for(let i=0;i<active.quantity;i++)html+=`<div class="copyprint"><span>${i+1}</span><select data-copy-print="${i}">${variantOptions(c,active.printAssignments[i])}</select></div>`;html+='</div>'}html+='</div>';host.innerHTML=html;
  host.querySelectorAll('[data-zone-minus]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();changeDeckZone(l,c,b.dataset.zoneMinus,-1)}));host.querySelectorAll('[data-zone-plus]').forEach(b=>b.addEventListener('click',e=>{e.preventDefault();e.stopPropagation();changeDeckZone(l,c,b.dataset.zonePlus,1)}));host.querySelectorAll('[data-zone-qty]').forEach(inp=>inp.onchange=()=>setDeckZoneQuantity(l,c,inp.dataset.zoneQty,inp.value));
  const dp=$('defaultPrint');if(dp&&active)dp.onchange=()=>setDefaultPrint(l,c,active.zone,dp.value);host.querySelectorAll('[data-copy-print]').forEach(sel=>sel.onchange=()=>setCopyPrint(l,c,active.zone,Number(sel.dataset.copyPrint),sel.value));
@@ -1024,7 +1027,7 @@ async function removeEntry(l,cardId,row,zone=null){if(l.kind==='deck'){const c=c
 function updateAddResultHighlight(){const box=$('listAddResults');if(!box)return;const items=[...box.querySelectorAll('.addresult')];items.forEach((b,i)=>b.classList.toggle('keyboard-active',i===addResultIndex));if(addResultIndex>=0&&items[addResultIndex])items[addResultIndex].scrollIntoView({block:'nearest'})}
 function handleAddSearchKeys(e,l){const box=$('listAddResults');if(!box||box.hidden)return;const items=[...box.querySelectorAll('.addresult')];if(!items.length)return;if(e.key==='ArrowDown'){e.preventDefault();addResultIndex=(addResultIndex+1)%items.length;updateAddResultHighlight()}else if(e.key==='ArrowUp'){e.preventDefault();addResultIndex=addResultIndex<0?items.length-1:(addResultIndex-1+items.length)%items.length;updateAddResultHighlight()}else if(e.key==='Enter'){e.preventDefault();const target=items[addResultIndex>=0?addResultIndex:0];if(target)target.click()}else if(e.key==='Escape'){addResultIndex=-1;box.hidden=true}}
 function renderAddResults(l,query){const box=$('listAddResults'),terms=searchTerms(query);if(!terms.length){addResultIndex=-1;box.hidden=true;box.innerHTML='';return}const nameScore=c=>terms.reduce((n,t)=>n+Number(normText(c.name).includes(t)),0),matches=cards.filter(c=>cardMatchesTerms(c,terms)).sort((a,b)=>nameScore(b)-nameScore(a)||a.name.localeCompare(b.name)).slice(0,30);box.hidden=false;box.innerHTML=matches.length?'':'<div style="padding:10px;color:var(--sorcery-text-muted)">No cards found.</div>';for(const c of matches){const b=document.createElement('button');b.className='addresult';b.innerHTML=`<span>${esc(c.name)}</span><small>${[c.type,c.rarity].filter(Boolean).map(esc).join(' · ')}</small>`;b.onclick=()=>addCardToList(l,c);box.appendChild(b)}if(addResultIndex>=matches.length)addResultIndex=matches.length-1;updateAddResultHighlight()}
-function preloadDeckCardImage(c,entry){if(!c)return;const slug=entry?.variantSlug||entry?.preferredPrinting;const v=(slug&&c.variants.find(x=>x.slug===slug))||preferredVariant(c)||c.variants[0];if(!v)return;const img=new Image();loadCardImage(img.src.split('.')[0],v.slug)}
+function preloadDeckCardImage(c,entry){if(!c)return;const slug=entry?.variantSlug||entry?.preferredPrinting;const v=(slug&&c.variants.find(x=>x.slug===slug))||preferredVariant(c)||c.variants[0];if(!v)return;const img=new Image();setCardImage(img,v.slug)}
 function refocusAddSearch(){addResultIndex=-1;requestAnimationFrame(()=>{const q=$('listCardSearch');if(!q)return;q.value='';const box=$('listAddResults');if(box){box.hidden=true;box.innerHTML=''}q.focus()})}
 const MAX_ADD_QUANTITY=999;
 let pendingQuantityAdd=null,quantityWarningAccepted=false;
@@ -1032,7 +1035,7 @@ function selectedAddZone(l,c){if(l.kind!=='deck')return'list';const sel=$('deckA
 function quantityDestinationLabel(l,zone){return l.kind==='deck'?(zone==='avatar'||zone==='spellbook'||zone==='atlas'?'Main deck':deckZoneLabel(zone)):'List'}
 function selectQuantityInput(value='1'){const input=$('quantityInput');input.value=value;requestAnimationFrame(()=>{input.focus();input.select()})}
 function closeQuantityModal(refocus=true){$('quantityModal').classList.remove('open');$('quantityWarning').hidden=true;$('quantityError').textContent='';pendingQuantityAdd=null;quantityWarningAccepted=false;if(refocus)refocusAddSearch()}
-function openQuantityModal(l,c){const zone=selectedAddZone(l,c),v=preferredVariant(c)||c.variants[0];pendingQuantityAdd={l,c,zone};quantityWarningAccepted=false;$('quantityCardName').textContent=c.name;$('quantityCardMeta').textContent=[c.rarity,c.type].filter(Boolean).join(' · ');$('quantityDestination').textContent=`Destination: ${quantityDestinationLabel(l,zone)}`;const img=$('quantityCardImg');if(v){loadCardImage(img.src.split('.')[0],v.slug);img.alt=c.name}else{img.removeAttribute('src');img.alt=''}$('quantityWarning').hidden=true;$('quantityError').textContent='';$('quantityCancel').textContent='Cancel';$('quantityConfirm').textContent='Add';$('quantityModal').classList.add('open');selectQuantityInput()}
+function openQuantityModal(l,c){const zone=selectedAddZone(l,c),v=preferredVariant(c)||c.variants[0];pendingQuantityAdd={l,c,zone};quantityWarningAccepted=false;$('quantityCardName').textContent=c.name;$('quantityCardMeta').textContent=[c.rarity,c.type].filter(Boolean).join(' · ');$('quantityDestination').textContent=`Destination: ${quantityDestinationLabel(l,zone)}`;const img=$('quantityCardImg');if(v){setCardImage(img,v.slug);img.alt=c.name}else{img.removeAttribute('src');img.alt=''}$('quantityWarning').hidden=true;$('quantityError').textContent='';$('quantityCancel').textContent='Cancel';$('quantityConfirm').textContent='Add';$('quantityModal').classList.add('open');selectQuantityInput()}
 function parsedQuantity(){const raw=$('quantityInput').value.trim();if(!/^\d+$/.test(raw))return null;const n=Number(raw);return Number.isSafeInteger(n)&&n>=1&&n<=MAX_ADD_QUANTITY?n:null}
 function quantityLimitWarning({l,c,zone},amount){if(l.kind!=='deck'||!['spellbook','atlas'].includes(zone))return null;const limit=rarityLimit(c),current=Number(deckEntry(l,c.id,zone)?.quantity)||0,total=current+amount;if(!Number.isFinite(limit)||total<=limit)return null;return {limit,current,total}}
 async function commitQuantityAdd({l,c,zone},amount){if(l.kind==='deck'){const current=Number(deckEntry(l,c.id,zone)?.quantity)||0;await setDeckZoneQuantity(l,c,zone,current+amount)}else{let e=l.entries.find(x=>x.cardId===c.id&&x.zone===zone);if(e)e.quantity+=amount;else{e={cardId:c.id,quantity:amount,zone,preferredPrinting:null,printAssignments:[]};l.entries.push(e)}normalizeListEntry(e,c);pinnedListCard=c.id;await saveList(l)}}
