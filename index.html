@@ -120,12 +120,22 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
 }
 @media(max-width:430px){.themecontrol{margin-left:0}.top .status{flex:1}.headmenu{flex:1}.headmenu>summary{text-align:center}.liststats{grid-template-columns:repeat(3,1fr)}.costelements{gap:0}.costelement{width:14px;height:14px}.manapip{min-width:20px;height:20px;font-size:11px}.changelogrow{font-size:11px}}
 
+
+[hidden]{display:none!important}
+.ledgeraccount{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-left:auto;font-size:12px}
+.ledgeraccount a{display:inline-flex;min-height:44px;align-items:center;padding:8px 12px;border:1px solid var(--sorcery-border);border-radius:6px;color:var(--sorcery-text)}
+.ledgeraccount button{min-height:44px}.ledgeraccount span{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.accountdialog{width:min(820px,calc(100% - 24px));max-height:85dvh;overflow:auto;background:var(--sorcery-surface);color:var(--sorcery-text);border:1px solid var(--sorcery-border);border-radius:12px;padding:22px}
+.accountdialog::backdrop{background:rgba(0,0,0,.7)}.accountdialoghead{display:flex;align-items:center;justify-content:space-between;gap:16px}.accountdialoghead h2{margin:0;font:600 24px Georgia,serif}.accounthelp{font-size:13px;line-height:1.5;color:var(--sorcery-text-muted)}
+.accountfields{display:grid;grid-template-columns:1fr 1fr;gap:14px}.accountfields label,.accountdialog label{display:flex;flex-direction:column;gap:5px;font-size:13px}.accountfields label:first-child{grid-column:1/-1}.accountdialog input,.accountdialog select{width:100%;min-height:44px;box-sizing:border-box}.accountactions{display:flex;gap:8px;flex-wrap:wrap}.accountdialog button{min-height:44px}.accountrecords{margin-top:18px}.accountrecord{padding:14px 0;border-top:1px solid var(--sorcery-border)}.accountrecord strong{display:block;overflow-wrap:anywhere}.accountrecord small{display:block;color:var(--sorcery-text-muted);margin:5px 0 10px}#ledgerCloudStatus{font-size:13px;line-height:1.5;overflow-wrap:anywhere}#ledgerCloudShare{margin-top:16px}#ledgerCloudCopyLink{margin-top:8px}
+@media(max-width:600px){.ledgeraccount{margin-left:0;width:100%}.accountdialog{padding:16px}.accountfields{grid-template-columns:1fr}.accountdialoghead h2{font-size:20px}.accountactions button{flex:1}.accountdialoghead button{flex:none}}
 </style>
 </head>
 <body>
 <header><div class="wrap">
  <div class="top">
   <h1>Ledger <small style="color:var(--sorcery-text-subtle);font:12px system-ui">prototype</small></h1>
+  <div class="ledgeraccount"><span id="ledgerAccountName"></span><a id="ledgerAccountLogin" href="https://sorcery.no/">Log in at Sorcery.no</a><button id="ledgerAccountSaves" type="button" hidden>Account saves</button></div>
   <div class="status">Local copy: <b id="saved">not created</b></div>
   <div class="status">Backup: <b id="backup">none</b></div>
   <label class="themecontrol" for="themeSelect"><span>Theme</span><select id="themeSelect"><option value="sorcery">Sorcery</option><option value="light">Light</option><option value="void">Void</option><option value="parchment">Parchment</option></select></label>
@@ -272,8 +282,9 @@ async function ensurePersistentStorage(){
   return await navigator.storage.persist();
  }catch{return false}
 }
-function getMeta(){return new Promise(res=>{const r=store('meta').get('state');r.onsuccess=()=>res(r.result?.value)})}
-function saveMeta(){store('meta','readwrite').put({key:'state',value:meta});updateStatus()}
+function getMeta(){return new Promise(res=>{const r=store('meta').get('state');r.onsuccess=()=>res(r.result?.value||r.result)})}
+function putLedgerMeta(os,key,value){const row={key,value};return os.keyPath?os.put(row):os.put(row,key)}
+function saveMeta(){putLedgerMeta(store('meta','readwrite'),'state',meta);updateStatus()}
 const fmt=x=>x?new Date(x).toLocaleString():'none';
 function updateStatus(){
  $('saved').textContent=meta.lastModified?fmt(meta.lastModified):'empty';$('backup').textContent=meta.lastExported?fmt(meta.lastExported):'none';
@@ -880,7 +891,7 @@ async function replaceInventoryFromCuriosa(){
  }
  const now=new Date().toISOString(),nextRevision=(meta.revision||0)+1;
  meta={...meta,revision:nextRevision,baselineRevision:nextRevision,lastModified:now,lastImported:now,baselineSource:pendingCuriosaImport.format};
- tx.objectStore('meta').put(meta,'state');
+ putLedgerMeta(tx.objectStore('meta'),'state',meta);
  await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error)});
  await reloadInventory();refreshStats();updateStatus();applyFilters();$('curiosaModal').classList.remove('open');pendingCuriosaImport=null;
 }
@@ -1485,7 +1496,8 @@ document.querySelectorAll('.viewtab').forEach(b=>b.onclick=()=>{document.querySe
       const button = document.createElement('button');
       button.id = 'deckShareBtn';
       button.type = 'button';
-      button.textContent = 'Share deck';
+      button.textContent = 'Share snapshot';
+      button.title = 'Create a separate unlisted snapshot link. Account save visibility is managed in Account saves.';
       button.onclick = () => share(deck);
       exportButton.before(button);
     }
@@ -1593,6 +1605,194 @@ decode = async function(token) {
   const bytes = new TextEncoder().encode(JSON.stringify(snapshot));
   return decodeEmbeddedLink('1r.' + base64(bytes));
 };
+})();
+</script>
+
+<dialog id="ledgerAccountDialog" class="accountdialog" aria-labelledby="ledgerAccountTitle">
+ <div class="accountdialoghead"><h2 id="ledgerAccountTitle">Your account saves</h2><button id="ledgerAccountClose" type="button" aria-label="Close account saves">Close</button></div>
+ <p class="accounthelp">Edits stay in this browser until you save them to your account. Loading a list or deck creates a local copy. Loading a collection replaces the local inventory after confirmation.</p>
+ <section id="ledgerCloudEditor" hidden>
+  <div class="accountfields"><label>Save from this browser<select id="ledgerCloudTarget"></select></label><label>Name<input id="ledgerCloudName" maxlength="100" value="My collection"></label><label>Visibility<select id="ledgerCloudVisibility"><option value="private">Private - only you</option><option value="unlisted">Unlisted - anyone with the link</option><option value="public">Public - discoverable by everyone</option></select></label></div>
+  <p class="accounthelp" id="ledgerVisibilityNote">Private saves are only accessible to your account.</p>
+  <div class="accountactions"><button id="ledgerCloudSave" class="primary" type="button">Save to account</button><button id="ledgerCloudSaveCopy" type="button">Save a new copy</button><button id="ledgerCloudRefresh" type="button">Refresh saved records</button></div>
+ </section>
+ <p id="ledgerCloudStatus" role="status" aria-live="polite"></p>
+ <div id="ledgerCloudRecords" class="accountrecords"></div>
+ <div id="ledgerCloudShare" hidden><label>Account share link<input id="ledgerCloudShareURL" readonly></label><button id="ledgerCloudCopyLink" type="button">Copy link</button></div>
+</dialog>
+<script>
+(() => {
+ const API='https://api.sorcery.no';
+ const dialog=$('ledgerAccountDialog'),status=$('ledgerCloudStatus'),target=$('ledgerCloudTarget');
+ let user=null,links={},busy=false,ready=false,authVersion=0,openHash=null;
+ const say=message=>{status.textContent=message};
+ const uuid=/^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/i;
+ function checkAccount(expected){if(!user||user.id!==expected)throw new Error('The signed-in account changed. Reopen account saves.');}
+ async function api(path,options={}){
+  const response=await fetch(API+path,{...options,credentials:'include',cache:'no-store',signal:AbortSignal.timeout(20000)});
+  const data=await response.json();
+  if(!response.ok){const error=new Error(data.error||'Account request failed');error.status=response.status;throw error;}
+  return data;
+ }
+ function metaGet(key){return new Promise((resolve,reject)=>{const r=store('meta').get(key);r.onsuccess=()=>resolve(r.result?.value||r.result||{});r.onerror=()=>reject(r.error)})}
+ function metaPut(key,value){return new Promise((resolve,reject)=>{const tx=db.transaction('meta','readwrite');putLedgerMeta(tx.objectStore('meta'),key,value);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error)})}
+ async function storeLinks(accountId){checkAccount(accountId);await metaPut('ledger-cloud:'+accountId,links)}
+ async function refreshAccount(){
+  if(busy)return;
+  const version=++authVersion;
+  try{
+   const response=await fetch(API+'/me',{credentials:'include',cache:'no-store',signal:AbortSignal.timeout(10000)});
+   if(version!==authVersion)return;
+   if(response.status===401){user=null;links={};$('ledgerAccountName').textContent='';$('ledgerAccountLogin').hidden=false;$('ledgerAccountSaves').hidden=true;$('ledgerCloudEditor').hidden=true;if(dialog.open)say('Log in at Sorcery.no to access your private saves.');return;}
+   if(!response.ok)throw new Error('Account unavailable');
+   const data=await response.json();if(version!==authVersion)return;
+   if(!data.authenticated||!data.user)throw new Error('Account unavailable');
+   const changed=user?.id!==data.user.id;user=data.user;
+   if(changed&&db){const accountId=user.id;const stored=await metaGet('ledger-cloud:'+accountId);if(version!==authVersion)return;links=stored;}
+   $('ledgerAccountName').textContent=user.display_name||'Sorcery.no account';$('ledgerAccountLogin').hidden=true;$('ledgerAccountSaves').hidden=false;$('ledgerCloudEditor').hidden=false;
+  }catch{$('ledgerAccountName').textContent='Account unavailable';}
+ }
+ function fillTargets(preferred=null){
+  const previous=preferred||target.value||'collection';target.replaceChildren();
+  const add=(value,label)=>{const option=document.createElement('option');option.value=value;option.textContent=label;target.appendChild(option)};
+  add('collection','Collection inventory');for(const l of ledgerLists)add(l.id,(l.kind==='deck'?'Deck: ':'List: ')+l.name);
+  target.value=[...target.options].some(o=>o.value===previous)?previous:'collection';selectTarget();
+ }
+ function selectTarget(){
+  const key=target.value,l=ledgerLists.find(x=>x.id===key),link=links[key];
+  $('ledgerCloudName').value=link?.name||(l?l.name:'My collection');
+  $('ledgerCloudVisibility').value=link?.visibility||'private';
+  $('ledgerCloudSave').textContent=link?'Update account save':'Save to account';visibilityNote();
+ }
+ function visibilityNote(){const value=$('ledgerCloudVisibility').value;$('ledgerVisibilityNote').textContent=value==='private'?'Private saves are only accessible to your account.':value==='unlisted'?'Anyone with the link can read the entire saved record, including notes and changelogs. It is excluded from public discovery.':'Everyone can read this save, including notes and changelogs. It is included in public discovery.';}
+ async function withBusy(action){
+  if(busy)return;busy=true;dialog.setAttribute('aria-busy','true');
+  dialog.querySelectorAll('button,select,input').forEach(el=>{if(el.id!=='ledgerAccountClose')el.disabled=true});
+  try{await action()}catch(error){say(error.message||'Account request failed. Your local data has been kept.');}
+  finally{busy=false;dialog.removeAttribute('aria-busy');dialog.querySelectorAll('button,select,input').forEach(el=>el.disabled=false);}
+ }
+ async function snapshot(key){
+  if(key==='collection'){
+   const tx=db.transaction(['inventory','cardnexus'],'readonly');
+   const read=name=>new Promise((resolve,reject)=>{const r=tx.objectStore(name).getAll();r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
+   const [inventory,cardnexus]=await Promise.all([read('inventory'),read('cardnexus')]);
+   return {kind:'collection',payload:{format:'ledger-account-collection',schemaVersion:1,inventory,cardnexus}};
+  }
+  const l=await getOne('lists',key);if(!l)throw new Error('This local list no longer exists. Reopen account saves.');
+  return {kind:l.kind,payload:{format:'ledger-account-record',schemaVersion:1,record:JSON.parse(JSON.stringify(l))}};
+ }
+ async function save(newCopy){
+  if(!user)throw new Error('Log in at Sorcery.no first.');const accountId=user.id,key=target.value;
+  const name=$('ledgerCloudName').value.trim(),visibility=$('ledgerCloudVisibility').value;
+  if(!name)throw new Error('Give your account save a name.');
+  const data=await snapshot(key);checkAccount(accountId);
+  const link=newCopy?null:links[key];
+  const body={...data,name,visibility,account_id:accountId};if(link)body.version=link.version;
+  // Snapshot capture happens before the network request; later local edits remain local.
+  say('Saving to your account…');
+  const result=await api('/ledger/documents'+(link?'/'+link.id:''),{method:link?'PUT':'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+  checkAccount(accountId);links[key]={id:result.document.id,version:result.document.version,name,visibility};
+  await storeLinks(accountId);selectTarget();await showRecords();say('Saved to your account. Later edits require another save.');
+ }
+ function cloudLink(record){return location.origin+location.pathname+'#cloud='+record.id;}
+ function showShare(record){
+  if(record.visibility==='private'){say('This save is private. Choose unlisted or public and save before sharing.');return;}
+  $('ledgerCloudShareURL').value=cloudLink(record);$('ledgerCloudShare').hidden=false;
+  $('ledgerCloudShareURL').focus();$('ledgerCloudShareURL').select();say('This link opens the current account save. Updates to that save appear at the same link.');
+ }
+ function recordRow(record){
+  const row=document.createElement('div');row.className='accountrecord';
+  const label=document.createElement('div');const title=document.createElement('strong');title.textContent=record.name;label.appendChild(title);
+  const info=document.createElement('small');info.textContent=`${record.kind} · ${record.visibility} · version ${record.version} · ${new Date(record.updated_at).toLocaleString()}`;label.appendChild(info);row.appendChild(label);
+  const actions=document.createElement('div');actions.className='accountactions';
+  const button=(text,fn)=>{const b=document.createElement('button');b.type='button';b.textContent=text;b.onclick=()=>withBusy(fn);actions.appendChild(b)};
+  button('Load',()=>loadDocument(record.id));
+  if(record.visibility!=='private')button('Share link',async()=>showShare(record));
+  if(record.owned!==false)button('Delete account save',async()=>{
+   if(!confirm(`Delete account save “${record.name}”? Local copies will remain.`))return;
+   const accountId=user?.id;checkAccount(accountId);
+   await api('/ledger/documents/'+record.id,{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({version:record.version,account_id:accountId})});
+   checkAccount(accountId);for(const key of Object.keys(links))if(links[key].id===record.id)delete links[key];
+   await storeLinks(accountId);selectTarget();await showRecords();say('Account save deleted. Local copies were kept.');
+  });
+  row.appendChild(actions);return row;
+ }
+ async function showRecords(){
+  if(!user){$('ledgerCloudRecords').replaceChildren();return;}
+  const accountId=user.id,data=await api('/ledger/documents');checkAccount(accountId);if(data.account_id!==accountId)throw new Error('The signed-in account changed. Reopen account saves.');
+  const host=$('ledgerCloudRecords');host.replaceChildren();
+  if(!data.documents.length){const p=document.createElement('p');p.className='accounthelp';p.textContent='No account saves yet.';host.appendChild(p)}
+  for(const record of data.documents)host.appendChild(recordRow(record));
+ }
+ function restoreCollection(payload){
+  return new Promise((resolve,reject)=>{
+   const now=new Date().toISOString(),nextMeta={...meta,revision:meta.revision+1,lastModified:now};
+   const tx=db.transaction(['inventory','cardnexus','meta'],'readwrite');
+   for(const name of ['inventory','cardnexus']){const os=tx.objectStore(name);os.clear();for(const row of payload[name])os.put(row)}
+   putLedgerMeta(tx.objectStore('meta'),'state',nextMeta);
+   tx.oncomplete=()=>{meta=nextMeta;resolve()};tx.onerror=()=>reject(tx.error);tx.onabort=()=>reject(tx.error||new Error('Collection restore failed'));
+  });
+ }
+ function validateLoad(record){
+  const p=record.payload;if(p?.schemaVersion!==1)throw new Error('Unsupported account save format.');
+  if(record.kind==='collection'){
+   if(!Array.isArray(p.inventory)||!Array.isArray(p.cardnexus))throw new Error('Invalid collection save.');
+   const known=new Set(cards.flatMap(c=>c.variants.map(v=>v.slug))),missing=p.inventory.filter(row=>!known.has(row.slug));
+   if(missing.length)throw new Error(`Load stopped: ${missing.length} printing(s) are missing from this catalogue. Local inventory was kept.`);
+  }else{
+   if(!p.record||!Array.isArray(p.record.entries))throw new Error('Invalid list or deck save.');
+   const missing=p.record.entries.filter(row=>!cardById(row.cardId));
+   if(missing.length)throw new Error(`Load stopped: ${missing.length} card(s) are missing from this catalogue. Local data was kept.`);
+  }
+ }
+ async function loadDocument(id){
+  say('Loading account save…');const accountId=user?.id;
+  const {document:record}=await api('/ledger/documents/'+id);validateLoad(record);
+  if(record.owned)checkAccount(accountId);
+  let key;
+  if(record.kind==='collection'){
+   if(!confirm(`Replace this browser’s collection inventory with “${record.name}”? Export a backup first if you want to keep the current inventory. Lists and decks will stay as they are.`)){say('Load cancelled.');return;}
+   await restoreCollection(record.payload);await reloadInventory();refreshStats();updateStatus();applyFilters();key='collection';
+  }else{
+   if(!confirm(`Load “${record.name}” as a new local ${record.kind} copy? Existing lists and decks will be kept.`)){say('Load cancelled.');return;}
+   const l=JSON.parse(JSON.stringify(record.payload.record));l.id=makeId();l.name=record.name;l.updatedAt=new Date().toISOString();
+   activeListId=l.id;await saveList(l);key=l.id;
+   document.querySelector('[data-view="listsView"]').click();
+  }
+  if(record.owned){checkAccount(accountId);links[key]={id:record.id,version:record.version,name:record.name,visibility:record.visibility};await storeLinks(accountId);}
+  else if(user){delete links[key];await storeLinks(user.id);}
+  // Non-owned shares never acquire permission to update their source record.
+  fillTargets(key);say('Loaded into this browser. Edits remain local until saved to your account.');
+ }
+ async function openPanel(){
+  if(!ready){say('Ledger is still loading.');return;}
+  dialog.showModal();say('Checking your account…');await refreshAccount();
+  fillTargets(document.getElementById('listsView').hidden?'collection':activeListId);
+  if(user)await withBusy(async()=>{await showRecords();say('Choose what to save, or load an account save below.');});
+  else say('Log in at Sorcery.no to access your account saves.');
+ }
+ async function openCloudHash(){
+  const match=location.hash.match(/^#cloud=([a-f0-9-]+)$/i);if(!ready||!match||!uuid.test(match[1])||openHash===match[1])return;
+  openHash=match[1];if(!dialog.open)dialog.showModal();
+  await refreshAccount();
+  await withBusy(async()=>{
+   say('Opening shared account save…');
+   const {document:record}=await api('/ledger/documents/'+match[1]);
+   $('ledgerCloudRecords').replaceChildren(recordRow(record));say(record.owned?'This is your account save. Load it to edit a local copy.':'Shared save. Load it to create your own local copy.');
+  });
+ }
+ $('ledgerAccountSaves').onclick=openPanel;
+ $('ledgerAccountClose').onclick=()=>dialog.close();
+ dialog.addEventListener('cancel',e=>{if(busy)e.preventDefault()});
+ target.onchange=selectTarget;$('ledgerCloudVisibility').onchange=visibilityNote;
+ $('ledgerCloudSave').onclick=()=>withBusy(()=>save(false));$('ledgerCloudSaveCopy').onclick=()=>withBusy(()=>save(true));
+ $('ledgerCloudRefresh').onclick=()=>withBusy(async()=>{await showRecords();say('Account saves refreshed.');});
+ $('ledgerCloudCopyLink').onclick=async()=>{try{await navigator.clipboard.writeText($('ledgerCloudShareURL').value);say('Link copied.');}catch{$('ledgerCloudShareURL').focus();$('ledgerCloudShareURL').select();say('Select and copy the link.');}};
+ const previousLoad=loadLists;
+ loadLists=async function(...args){const result=await previousLoad.apply(this,args);if(!ready&&db&&cards.length){ready=true;refreshAccount().then(openCloudHash);}return result;};
+ if(db&&cards.length){ready=true;refreshAccount().then(openCloudHash);}
+ window.addEventListener('focus',()=>{if(ready)refreshAccount()});
+ window.addEventListener('hashchange',()=>{openHash=null;openCloudHash()});
 })();
 </script>
 
