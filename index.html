@@ -137,29 +137,29 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
 #ledgerSyncStatus[data-state="saving"]{background:#e9b533}
 #ledgerSyncStatus[data-state="conflict"]{background:#e45151}
 #ledgerSyncStatus:focus-visible{outline:2px solid var(--sorcery-text);outline-offset:4px}
+
+/* Account and inventory layout */
+[hidden]{display:none!important}
+.top{flex-wrap:nowrap}.ledgeraccount{margin-left:auto;flex-wrap:nowrap}#ledgerUserMenu>summary{display:flex;align-items:center;gap:8px;background:transparent;border-color:transparent;min-height:44px}#ledgerAccountName{max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.collectionfiles{display:flex;gap:8px;margin-left:auto}.viewtabs{align-items:center}.toolbar{grid-template-columns:minmax(240px,1fr) repeat(3,minmax(120px,170px))}.stats{align-items:center;gap:12px}.resultcount{margin-left:auto;white-space:nowrap}.inventorysort select{max-width:220px}.ownershiptoggle{display:flex;gap:0;border:1px solid var(--sorcery-border);border-radius:8px;overflow:hidden}.ownershiptoggle button{border:0;border-radius:0;min-height:44px;background:transparent}.ownershiptoggle button[aria-pressed="true"]{background:var(--sorcery-surface-active);color:var(--sorcery-text-accent);box-shadow:inset 0 -2px var(--sorcery-accent)}#ledgerSettingsDialog{width:min(520px,calc(100vw - 24px));max-height:85vh;overflow:auto;padding:24px;border:1px solid var(--sorcery-border);border-radius:12px;background:var(--sorcery-surface);color:var(--sorcery-text)}#ledgerSettingsDialog::backdrop{background:var(--sorcery-backdrop)}.settingshead{display:flex;align-items:center;justify-content:space-between;gap:12px}.settingshead h2{margin:0;font:600 23px Georgia,serif}.overviewstats{display:grid;gap:10px}.overviewstats b{display:block;font-size:22px}#ledgerPriceCoverage{font-size:12px;color:var(--sorcery-text-muted)}.storagedetails{margin-top:24px;padding-top:16px;border-top:1px solid var(--sorcery-border)}.storagedetails summary{cursor:pointer}.storagedetails>.status,.storagedetails>span{display:block;margin:10px 0}#baseToggle{display:none!important}
+@media(max-width:850px){.toolbar{grid-template-columns:repeat(3,minmax(0,1fr))}.toolbar #search{grid-column:1/-1}.toolbar select{width:100%;min-width:0}}
+@media(max-width:700px){#baseFilters.mobile-collapsed{display:grid}.wrap,main{padding-left:12px;padding-right:12px}.top{gap:8px}.top h1 small{display:none}#ledgerAccountName{max-width:110px}.ledgeraccount{gap:6px}#ledgerAccountLogin{font-size:12px}.viewtabs{flex-wrap:wrap}.viewtabs button{min-height:44px}.collectionfiles{margin-left:auto}.headmenu>summary{padding:9px 8px}.stats{gap:8px}.ownershiptoggle{width:100%}.ownershiptoggle button{flex:1}.resultcount{margin-left:0}.inventorysort{margin-left:auto}.inventorysort select{max-width:190px}.quickfilters{padding:10px}.filtertitle{width:55px}}
 </style>
 </head>
 <body>
 <header><div class="wrap">
  <div class="top">
   <h1>Ledger <small style="color:var(--sorcery-text-subtle);font:12px system-ui">prototype</small></h1>
-  <div class="ledgeraccount"><img id="ledgerAccountAvatar" alt="" width="28" height="28" hidden referrerpolicy="no-referrer"><span id="ledgerAccountName"></span><a id="ledgerAccountLogin" href="https://sorcery.no/">Log in at Sorcery.no</a><span id="ledgerSyncStatus" role="img" tabindex="0" aria-label="Checking account" title="Checking account"></span><button id="ledgerAccountSaves" type="button" hidden>Account &amp; sharing</button></div>
-  <div class="status">Local copy: <b id="saved">not created</b></div>
-  <div class="status">Backup: <b id="backup">none</b></div>
-  <label class="themecontrol" for="themeSelect"><span>Theme</span><select id="themeSelect"><option value="sorcery">Sorcery</option><option value="light">Light</option><option value="void">Void</option><option value="parchment">Parchment</option></select></label>
-  <details class="headmenu" id="importMenu"><summary>Import ▾</summary><div class="headmenuitems">
-   <button id="curiosaBtn">Collection CSV</button>
-   <button id="importBtn" title="Restore tracker-specific JSON backup">Ledger backup</button>
-  </div></details>
+
+
+
+
+
   <input id="curiosaFile" type="file" accept=".csv,text/csv" hidden>
   <input id="fileInput" type="file" accept=".json,application/json" hidden>
   <input id="deckFileInput" type="file" accept=".json,application/json" hidden>
   <input id="listFileInput" type="file" accept=".json,application/json" hidden>
-  <details class="headmenu" id="exportMenu"><summary>Export ▾</summary><div class="headmenuitems">
-   <button id="csvExportBtn">Collection CSV</button>
-   <button id="cardNexusExportBtn" title="Export in CardNexus inventory CSV format">CardNexus CSV</button>
-   <button id="exportBtn" title="Export tracker-specific JSON backup">Ledger backup</button>
-  </div></details>
+
+<div class="ledgeraccount"><a id="ledgerAccountLogin" href="https://sorcery.no/">Log in at Sorcery.no</a><details class="headmenu" id="ledgerUserMenu"><summary aria-label="User settings"><img id="ledgerAccountAvatar" alt="" width="28" height="28" hidden referrerpolicy="no-referrer"><span id="ledgerAccountName"></span><span id="ledgerGuestLabel">Settings</span><span aria-hidden="true">▾</span></summary><div class="headmenuitems"><button id="ledgerSettingsOpen" type="button">Overview &amp; settings</button><button id="ledgerAccountSaves" type="button" hidden>Account &amp; sharing</button><button id="ledgerLogout" type="button" hidden>Log out</button></div></details><span id="ledgerSyncStatus" role="img" tabindex="0" aria-label="Checking account" title="Checking account"></span></div>
  </div>
  <button class="mobiletoggle" id="baseToggle" type="button" aria-expanded="false" aria-controls="baseFilters"><span>Filters</span><span class="chev">▾</span></button>
  <div class="toolbar" id="baseFilters">
@@ -167,17 +167,24 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
   <select id="setFilter"><option value="">All sets</option></select>
   <select id="rarityFilter"><option value="">All rarities</option></select>
   <select id="finishFilter"><option value="">All finishes</option></select>
-  <select id="ownershipFilter"><option value="all">All cards</option><option value="owned">Owned</option><option value="unowned">Unowned</option></select>
-  <select id="sortBy"><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option><option value="set">Set</option><option value="rarity">Rarity</option><option value="mana-asc">Mana cost (low-high)</option><option value="mana-desc">Mana cost (high-low)</option><option value="threshold-asc">Threshold (low-high)</option><option value="threshold-desc">Threshold (high-low)</option></select>
+
+
  </div>
  <div class="viewtabs" role="tablist">
   <button class="viewtab active" data-view="inventoryView">Inventory</button>
-  <button class="viewtab" data-view="listsView">Lists &amp; Decks</button>
+  <button class="viewtab" data-view="listsView">Lists &amp; Decks</button><div class="collectionfiles">  <details class="headmenu" id="importMenu"><summary>Import ▾</summary><div class="headmenuitems">
+   <button id="curiosaBtn">Collection CSV</button>
+   <button id="importBtn" title="Restore tracker-specific JSON backup">Ledger backup</button>
+  </div></details>  <details class="headmenu" id="exportMenu"><summary>Export ▾</summary><div class="headmenuitems">
+   <button id="csvExportBtn">Collection CSV</button>
+   <button id="cardNexusExportBtn" title="Export in CardNexus inventory CSV format">CardNexus CSV</button>
+   <button id="exportBtn" title="Export tracker-specific JSON backup">Ledger backup</button>
+  </div></details></div>
  </div>
 </div></header>
 <main id="inventoryView" class="appview">
- <div class="notice"><span id="noticeText">Loading catalogue from api.sorcery.no...</span></div>
- <div class="catalogueStatus" id="catalogueStatus">Catalogue: loading...</div>
+
+
  <button class="quicktoggle" id="quickToggle" type="button" aria-expanded="true" aria-controls="quickFilters">
   <span>Quick filters</span><span class="chev">▾</span>
  </button>
@@ -193,11 +200,11 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
    <button class="chip" data-value="Unique">Unique</button><button class="chip" data-value="Elite">Elite</button><button class="chip" data-value="Exceptional">Exceptional</button><button class="chip" data-value="Ordinary">Ordinary</button>
   </div>
  </div>
- <div class="stats">
-  <span><b id="visibleCount">0</b> cards shown</span>
-  <span><b id="uniqueOwned">0</b> variants owned</span>
-  <span><b id="totalOwned">0</b> physical cards owned</span>
-  <span><b id="changes">0</b> changes since baseline</span>
+ <div class="stats">  <select hidden id="ownershipFilter"><option value="all">All cards</option><option value="owned">Owned</option><option value="unowned">Unowned</option></select><div class="ownershiptoggle" role="group" aria-label="Cards to show"><button type="button" data-ownership="all" aria-pressed="true">All cards</button><button type="button" data-ownership="owned" aria-pressed="false">Owned</button><button type="button" data-ownership="unowned" aria-pressed="false">Unowned</button></div>
+  <span class="resultcount"><b id="visibleCount">0</b> cards shown</span><label class="inventorysort">  <select aria-label="Inventory sort order" id="sortBy"><option value="name-asc">Name A-Z</option><option value="name-desc">Name Z-A</option><option value="set">Set</option><option value="rarity">Rarity</option><option value="mana-asc">Mana cost (low-high)</option><option value="mana-desc">Mana cost (high-low)</option><option value="threshold-asc">Threshold (low-high)</option><option value="threshold-desc">Threshold (high-low)</option></select></label>
+
+
+
  </div>
  <div id="grid" class="grid"></div>
  <div id="sentinel" style="height:30px"></div>
@@ -1639,6 +1646,7 @@ decode = async function(token) {
  <div class="accountdialoghead"><h2 id="ledgerSharedTitle">Shared Ledger record</h2><button id="ledgerSharedClose" type="button">Close</button></div>
  <p id="ledgerSharedDetails"></p><button id="ledgerSharedImport" type="button">Add a private copy to my Ledger</button>
 </dialog>
+<dialog id="ledgerSettingsDialog" aria-labelledby="ledgerSettingsHeading"><div class="settingshead"><h2 id="ledgerSettingsHeading">Overview &amp; settings</h2><button type="button" id="ledgerSettingsClose" aria-label="Close settings">Close</button></div><h3>Collection</h3><div class="overviewstats">  <span><b id="totalOwned">0</b> physical cards owned</span>  <span><b id="uniqueOwned">0</b> variants owned</span><span><b id="ledgerCollectionValue">-</b> estimated value (USD)</span></div><p id="ledgerPriceCoverage"></p><h3>Appearance</h3>  <label class="themecontrol" for="themeSelect"><span>Theme</span><select id="themeSelect"><option value="sorcery">Sorcery</option><option value="light">Light</option><option value="void">Void</option><option value="parchment">Parchment</option></select></label><details class="storagedetails"><summary>Storage &amp; backups</summary>  <div class="status">Local copy: <b id="saved">not created</b></div>  <div class="status">Backup: <b id="backup">none</b></div>  <span><b id="changes">0</b> changes since baseline</span> <div class="notice"><span id="noticeText">Loading catalogue from api.sorcery.no...</span></div> <div class="catalogueStatus" id="catalogueStatus">Catalogue: loading...</div></details></dialog>
 <script>
 (() => {
  const API='https://api.sorcery.no',STATE_KEY='ledger-autosync-v1',REMEMBER='ledger-last-account-v1';
@@ -1683,6 +1691,7 @@ decode = async function(token) {
   avatar.hidden=!url;avatar.onerror=()=>{avatar.hidden=true;};
   if(url&&avatar.getAttribute('src')!==url)avatar.src=url;
   if(!url)avatar.removeAttribute('src');
+  $('ledgerGuestLabel').hidden=signed;$('ledgerLogout').hidden=!signed;
   const label=$('ledgerSyncStatus'),pending=!!(ctx?.dirty||ctx?.state.pending.length),conflicts=signed&&Object.keys(ctx.state.conflicts).length;
   let state='offline',description='Logged out - local storage only';
   if(switching)description='Opening account';
@@ -2011,8 +2020,27 @@ decode = async function(token) {
  async function shareRecord(record){await openPanel();$('ledgerCloudTarget').value=record.id;selectTarget();text('Choose Unlisted or Public, then Copy share link.');}
  const earlierRender=renderListWorkspace;
  renderListWorkspace=function(...args){const result=earlierRender.apply(this,args),record=ledgerLists.find(x=>x.id===activeListId),exportButton=$('listExportBtn');if(active?.user&&record?.kind==='list'&&exportButton&&!$('accountListShare')){const button=document.createElement('button');button.id='accountListShare';button.type='button';button.textContent='Share list';button.onclick=()=>shareRecord(record);exportButton.before(button);}return result;};
- window.LedgerSync={start,signedIn:()=>!!active?.user,shareRecord};
+ async function logout(){
+  const ctx=active;if(!ctx?.user)return;
+  await cycle(ctx,true);await scan(ctx);
+  if(ctx.state.pending.length&&!confirm('Some changes have not reached your account. They will remain saved on this device for your next login. Log out?'))return;
+  await request('/auth/logout',{method:'POST'});await checkSession();
+ }
+ window.LedgerSync={start,signedIn:()=>!!active?.user,shareRecord,logout};
 })();
 </script>
 
+<script>
+(() => {
+ const menu=$('ledgerUserMenu'),dialog=$('ledgerSettingsDialog');
+ function overview(){refreshStats();let value=0,priced=0,total=0;for(const [slug,quantity] of inv){if(quantity<=0)continue;total+=quantity;const p=priceForSlug(slug);if(p&&Number.isFinite(Number(p.market))&&p.market!==null){value+=Number(p.market)*quantity;priced+=quantity;}}$('ledgerCollectionValue').textContent=priced?money(value):'Unavailable';$('ledgerPriceCoverage').textContent=priced?`${priced.toLocaleString()} of ${total.toLocaleString()} owned cards have market prices. Estimate uses each owned printing; cards without prices are excluded.`:'Market prices are unavailable for the owned cards.';}
+ $('ledgerSettingsOpen').onclick=()=>{menu.open=false;overview();dialog.showModal();};$('ledgerSettingsClose').onclick=()=>dialog.close();
+ $('ledgerAccountSaves').addEventListener('click',()=>{menu.open=false;});
+ $('ledgerLogout').onclick=async()=>{const b=$('ledgerLogout');b.disabled=true;try{await window.LedgerSync.logout();menu.open=false;}catch(e){alert(e.message);}finally{b.disabled=false;}};
+ document.addEventListener('click',e=>{if(!menu.contains(e.target))menu.open=false;});document.addEventListener('keydown',e=>{if(e.key==='Escape')menu.open=false;});
+ function ownership(){document.querySelectorAll('[data-ownership]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.ownership===$('ownershipFilter').value)));}
+ document.querySelectorAll('[data-ownership]').forEach(b=>b.onclick=()=>{$('ownershipFilter').value=b.dataset.ownership;$('ownershipFilter').dispatchEvent(new Event('change'));ownership();});
+ const prior=applyFilters;applyFilters=function(...args){ownership();return prior.apply(this,args);};ownership();
+})();
+</script>
 </body></html>
