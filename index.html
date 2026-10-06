@@ -131,16 +131,19 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
 @media(max-width:600px){.ledgeraccount{margin-left:0;width:100%}.accountdialog{padding:16px}.accountfields{grid-template-columns:1fr}.accountdialoghead h2{font-size:20px}.accountactions button{flex:1}.accountdialoghead button{flex:none}}
 
 .syncgate{position:fixed;inset:0;background:var(--sorcery-bg);opacity:.97;z-index:80;display:grid;place-items:center;font-size:17px;text-align:center;padding:24px}
-#ledgerSyncStatus{max-width:none;color:var(--sorcery-text-muted);font-size:12px}
-#ledgerSyncStatus[data-state="conflict"]{color:#e5b75d}
-#ledgerSyncStatus[data-state="offline"]{color:var(--sorcery-text-muted)}
+#ledgerAccountAvatar{width:28px;height:28px;border-radius:50%;object-fit:cover;flex:none}
+#ledgerSyncStatus{display:inline-block;width:12px;height:12px;flex:none;border-radius:50%;background:#89919d;border:1px solid #0003;vertical-align:middle}
+#ledgerSyncStatus[data-state="saved"]{background:#32b96b}
+#ledgerSyncStatus[data-state="saving"]{background:#e9b533}
+#ledgerSyncStatus[data-state="conflict"]{background:#e45151}
+#ledgerSyncStatus:focus-visible{outline:2px solid var(--sorcery-text);outline-offset:4px}
 </style>
 </head>
 <body>
 <header><div class="wrap">
  <div class="top">
   <h1>Ledger <small style="color:var(--sorcery-text-subtle);font:12px system-ui">prototype</small></h1>
-  <div class="ledgeraccount"><span id="ledgerAccountName"></span><a id="ledgerAccountLogin" href="https://sorcery.no/">Log in at Sorcery.no</a><span id="ledgerSyncStatus" role="status" aria-live="polite">Checking account…</span><button id="ledgerAccountSaves" type="button" hidden>Account &amp; sharing</button></div>
+  <div class="ledgeraccount"><img id="ledgerAccountAvatar" alt="" width="28" height="28" hidden referrerpolicy="no-referrer"><span id="ledgerAccountName"></span><a id="ledgerAccountLogin" href="https://sorcery.no/">Log in at Sorcery.no</a><span id="ledgerSyncStatus" role="img" tabindex="0" aria-label="Checking account" title="Checking account"></span><button id="ledgerAccountSaves" type="button" hidden>Account &amp; sharing</button></div>
   <div class="status">Local copy: <b id="saved">not created</b></div>
   <div class="status">Backup: <b id="backup">none</b></div>
   <label class="themecontrol" for="themeSelect"><span>Theme</span><select id="themeSelect"><option value="sorcery">Sorcery</option><option value="light">Light</option><option value="void">Void</option><option value="parchment">Parchment</option></select></label>
@@ -1676,12 +1679,20 @@ decode = async function(token) {
  function status(ctx=active){
   const signed=!!ctx?.user;$('ledgerAccountLogin').hidden=signed;$('ledgerAccountSaves').hidden=!signed;
   $('ledgerAccountName').textContent=signed?(ctx.user.display_name||'Sorcery.no account'):'';
-  const label=$('ledgerSyncStatus');
-  if(switching){label.textContent='Opening account…';return;}
-  if(!signed){label.textContent='Local only';return;}
-  const conflicts=Object.keys(ctx.state.conflicts).length;
-  label.textContent=conflicts?'Needs attention':!ctx.verified||!ctx.online?'Offline - saved on this device':ctx.running?'Saving…':ctx.state.pending.length?'Waiting to save…':'Saved to account';
-  label.dataset.state=conflicts?'conflict':!ctx.verified||!ctx.online?'offline':ctx.running||ctx.state.pending.length?'saving':'saved';
+  const avatar=$('ledgerAccountAvatar'),url=signed?ctx.user.avatar_url:null;
+  avatar.hidden=!url;avatar.onerror=()=>{avatar.hidden=true;};
+  if(url&&avatar.getAttribute('src')!==url)avatar.src=url;
+  if(!url)avatar.removeAttribute('src');
+  const label=$('ledgerSyncStatus'),pending=!!(ctx?.dirty||ctx?.state.pending.length),conflicts=signed&&Object.keys(ctx.state.conflicts).length;
+  let state='offline',description='Logged out - local storage only';
+  if(switching)description='Opening account';
+  else if(signed){
+   if(conflicts){state='conflict';description='Account changes need attention - open Account & sharing';}
+   else if(!ctx.verified||!ctx.online){state=pending?'conflict':'offline';description=pending?'Changes saved on this device but not saved to account':'Account unavailable - using the copy saved on this device';}
+   else if(pending){state='saving';description='Changes pending account save';}
+   else{state='saved';description='Logged in - saved to account';}
+  }
+  label.textContent='';label.dataset.state=state;label.title=description;label.setAttribute('aria-label',description);
   if(dialog.open)renderConflicts();
  }
  async function accountContext(user,database){
@@ -1692,7 +1703,7 @@ decode = async function(token) {
   connection.transaction=function(names,mode,...rest){
    const scope=typeof names==='string'?[names]:[...names],tracked=mode==='readwrite'&&scope.some(n=>['inventory','cardnexus','lists'].includes(n));
    const tx=ctx.raw(tracked?[...new Set([...scope,'meta'])]:names,mode,...rest);
-   if(tracked){const os=tx.objectStore('meta'),r=os.get(GENERATION);r.onsuccess=()=>putLedgerMeta(os,GENERATION,Number(r.result?.value||r.result||0)+1);tx.addEventListener('complete',()=>{notify(ctx);if(active===ctx)schedule(700)});}
+   if(tracked){const os=tx.objectStore('meta'),r=os.get(GENERATION);r.onsuccess=()=>putLedgerMeta(os,GENERATION,Number(r.result?.value||r.result||0)+1);tx.addEventListener('complete',()=>{notify(ctx);if(active===ctx)schedule(700,true)});}
    return tx;
   };
   contexts.set(database,ctx);return ctx;
@@ -1816,7 +1827,7 @@ decode = async function(token) {
  async function cycle(ctx,pullRemote=true){
   if(!ctx?.user||!ctx.verified||!ctx.state.initialized||ctx!==active||switching)return;
   if(ctx.flight)return ctx.flight;
-  ctx.running=true;status(ctx);
+  ctx.dirty=false;ctx.running=true;status(ctx);
   ctx.flight=locked(ctx,async()=>{
    await reloadState(ctx);let local=await scan(ctx);
    if(pullRemote||Object.keys(ctx.state.attempts).length)await pull(ctx,local);
@@ -1828,7 +1839,7 @@ decode = async function(token) {
   }).finally(()=>{ctx.running=false;ctx.flight=null;status(ctx);if(ctx===active&&ctx.verified&&ctx.online&&ctx.state.pending.some(k=>!ctx.state.conflicts[k]))schedule(700);});
   return ctx.flight;
  }
- function schedule(delay=700){if(!active?.user||switching)return;clearTimeout(timer);timer=setTimeout(()=>cycle(active,false),delay);if(active.online)$('ledgerSyncStatus').textContent='Saving…';}
+ function schedule(delay=700,changed=false){if(!active?.user||switching)return;if(changed)active.dirty=true;clearTimeout(timer);timer=setTimeout(()=>cycle(active,false),delay);status();}
  async function importAnonymous(ctx,source){
   const [inventory,cardnexus,lists,existing]=await Promise.all([all(source,'inventory'),all(source,'cardnexus'),all(source,'lists'),all(ctx,'lists')]);
   const content=l=>({kind:l.kind,name:l.name,description:l.description||'',tags:l.tags||[],sortMode:l.sortMode||'',entries:l.entries||[],changelog:l.changelog||[]});
@@ -1921,7 +1932,7 @@ decode = async function(token) {
  async function preferences(){
   const ctx=active,key=$('ledgerCloudTarget').value;if(!ctx?.user)return;
   const name=$('ledgerCloudName').value.trim();if(key==='collection'&&!name){text('Give your collection a name.');return;}
-  await locked(ctx,async()=>{await reloadState(ctx);ctx.state.prefs[key]={name:key==='collection'?name:ledgerLists.find(l=>l.id===key)?.name,visibility:$('ledgerCloudVisibility').value};await persist(ctx);});selectTarget();schedule(0);
+  await locked(ctx,async()=>{await reloadState(ctx);ctx.state.prefs[key]={name:key==='collection'?name:ledgerLists.find(l=>l.id===key)?.name,visibility:$('ledgerCloudVisibility').value};await persist(ctx);});selectTarget();schedule(0,true);
  }
  async function copyLink(){
   const ctx=active,key=$('ledgerCloudTarget').value;await cycle(ctx,true);
@@ -1985,7 +1996,7 @@ decode = async function(token) {
     // its current visibility. They never grant ownership of the source.
     await commit(ctx,['inventory','cardnexus'],tx=>{for(const name of ['inventory','cardnexus']){tx.objectStore(name).clear();for(const row of record.payload[name])tx.objectStore(name).put(row)}});
    }else{const l=clone(record.payload.record);l.id=crypto.randomUUID();l.name=record.name;await commit(ctx,'lists',tx=>tx.objectStore('lists').put(l));activeListId=l.id;}
-   await repaint(ctx);$('ledgerSharedDialog').close();notify(ctx);schedule(0);
+   await repaint(ctx);$('ledgerSharedDialog').close();notify(ctx);schedule(0,true);
   }catch(e){alert(e.message)}
  }
  $('ledgerAccountSaves').onclick=openPanel;$('ledgerAccountClose').onclick=()=>dialog.close();
