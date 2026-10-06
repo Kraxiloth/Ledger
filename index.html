@@ -207,6 +207,7 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
   </div></details></div>
  </div>
 </div></header>
+<div id="catalogueLoadProgress" class="catalogueStatus" role="status" aria-live="polite" style="padding:8px 20px">Loading card catalogue...</div>
 <main id="inventoryView" class="appview">
 
 
@@ -475,19 +476,42 @@ function showCatalogueStatus(source){
  $('catalogueStatus').textContent=`Catalogue: ${Number(catalogueMeta.cardCount||cards.length).toLocaleString()} cards · ${Number(catalogueMeta.printingCount||0).toLocaleString()} printings · updated ${updated} · ${source}`;
 }
 async function fetchRawCatalogue(){
- const r=await fetch(CATALOGUE_URL,{cache:'no-store'});
- if(!r.ok)throw new Error(`Catalogue request failed: HTTP ${r.status}`);
- const payload=await r.json();
- const raw=Array.isArray(payload)?payload:payload?.cards;
- validateRawCatalogue(raw);
- return {
-  raw,
-  meta:{
-   cardCount:Number(payload?.cardCount||raw.length),
-   printingCount:Number(payload?.printingCount||raw.reduce((n,c)=>n+(c.printings?.length||0),0)),
-   updatedAt:payload?.updatedAt||payload?.generatedAt||null
+ const raw=[],seenCards=new Set(),seenCursors=new Set();
+ let cursor=null,page=0,updatedAt=null;
+ const started=performance.now();
+ const progress=$('catalogueLoadProgress');
+ if(progress){progress.hidden=false;progress.textContent='Loading card catalogue...';}
+ while(true){
+  const url=new URL(CATALOGUE_URL);
+  url.searchParams.set('limit','200');
+  if(cursor)url.searchParams.set('cursor',cursor);
+  const r=await fetch(url.toString(),{cache:'no-store',signal:AbortSignal.timeout(30000)});
+  if(!r.ok)throw new Error(`Catalogue request failed: HTTP ${r.status}`);
+  const payload=await r.json();
+  const batch=Array.isArray(payload)?payload:payload?.cards;
+  if(!Array.isArray(batch))throw new Error('Catalogue structure is invalid');
+  if(batch.length)validateRawCatalogue(batch);
+  for(const card of batch){
+   if(seenCards.has(card.id))throw new Error('Catalogue changed during loading. Please reload to try again.');
+   seenCards.add(card.id);raw.push(card);
   }
- };
+  page++;
+  updatedAt=payload?.updatedAt||payload?.generatedAt||updatedAt;
+  const message=`Loading card catalogue: ${raw.length.toLocaleString()} cards received...`;
+  if(progress)progress.textContent=message;
+  $('catalogueStatus').textContent=message;
+  const pagination=payload?.pagination;
+  // Older Workers return the complete catalogue without pagination metadata.
+  if(pagination===undefined)break;
+  if(!pagination||typeof pagination.hasMore!=='boolean')throw new Error('Invalid catalogue pagination');
+  if(!pagination.hasMore)break;
+  const next=pagination.nextCursor;
+  if(!batch.length||typeof next!=='string'||!next||seenCursors.has(next))throw new Error('Invalid or repeated catalogue cursor');
+  seenCursors.add(next);cursor=next;
+ }
+ validateRawCatalogue(raw);
+ console.info(`Catalogue loaded: ${raw.length} cards in ${page} request${page===1?'':'s'} (${Math.round(performance.now()-started)} ms).`);
+ return {raw,meta:{cardCount:raw.length,printingCount:raw.reduce((n,c)=>n+c.printings.length,0),updatedAt}};
 }
 async function loadCatalogue(){
  const cached=await getOne('catalogue','current');
@@ -499,6 +523,7 @@ async function loadCatalogue(){
   catalogueMeta=apiMeta;
   await putOne('catalogue',{key:'current',revision:null,meta:apiMeta,raw});
   populateCatalogueFilters();showCatalogueStatus('api.sorcery.no');
+  $('catalogueLoadProgress').hidden=true;
  }catch(err){
   if(cached?.raw){
    validateRawCatalogue(cached.raw);
@@ -506,6 +531,7 @@ async function loadCatalogue(){
    catalogueMeta=cached.meta||null;
    cards=normalize(cached.raw).filter(c=>c.name&&c.variants.length);
    populateCatalogueFilters();showCatalogueStatus('local cache, API unavailable');
+   $('catalogueLoadProgress').hidden=true;
    console.warn(err);return;
   }
   throw err;
@@ -1160,7 +1186,7 @@ document.querySelectorAll('.viewtab').forEach(b=>b.onclick=()=>{document.querySe
  requestAnimationFrame(()=>requestAnimationFrame(()=>window.scrollTo(0,restoreScroll||0)));
  if(persistent)$('saved').title='Browser persistent storage granted';
  else $('saved').title='Persistent storage was not granted; exported backups remain recommended';
-}catch(e){$('noticeText').textContent='Could not load the catalogue: '+e.message;console.error(e)}})();
+}catch(e){const message='Could not load the catalogue: '+e.message;$('noticeText').textContent=message;const progress=$('catalogueLoadProgress');if(progress){progress.hidden=false;progress.textContent=message;}console.error(e)}})();
 </script>
 
 <script>
