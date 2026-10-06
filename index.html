@@ -1650,6 +1650,7 @@ decode = async function(token) {
 })();
 </script>
 
+<div id="ledgerStartupError" hidden role="alert" style="padding:12px 18px;border:1px solid var(--sorcery-border)"><span id="ledgerStartupErrorText"></span> <button id="ledgerStartupRetry" type="button">Retry account connection</button></div>
 <div id="ledgerSyncGate" class="syncgate" hidden role="status">Opening your Ledger…</div>
 <dialog id="ledgerAccountDialog" class="accountdialog" aria-labelledby="ledgerAccountTitle">
  <div class="accountdialoghead"><h2 id="ledgerAccountTitle">Account &amp; sharing</h2><button id="ledgerAccountClose" type="button">Close</button></div>
@@ -1688,6 +1689,7 @@ decode = async function(token) {
   $('ledgerSyncGate').hidden=!show;$('ledgerSyncGate').textContent=message;
   document.querySelectorAll('header,main,.modal').forEach(el=>{el.inert=show});
  }
+ function startupError(error){$('ledgerStartupErrorText').textContent='Could not open your account: '+error.message+' Your saved data has been kept.';$('ledgerStartupError').hidden=false;}
  function remember(user){try{user?localStorage.setItem(REMEMBER,JSON.stringify(user)):localStorage.removeItem(REMEMBER)}catch{}}
  function remembered(){try{return JSON.parse(localStorage.getItem(REMEMBER))}catch{return null}}
  async function request(path,options={}){
@@ -1732,7 +1734,8 @@ decode = async function(token) {
  }
  async function accountContext(user,database){
   if(contexts.has(database)){const ctx=contexts.get(database);ctx.user=user;return ctx;}
-  const connection=await new Promise((resolve,reject)=>{const r=indexedDB.open(database,DB_VERSION);r.onupgradeneeded=()=>{const d=r.result;for(const [name,key] of [['inventory','slug'],['catalogue','key'],['cardnexus','slug'],['lists','id']])if(!d.objectStoreNames.contains(name))d.createObjectStore(name,{keyPath:key});if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta');};r.onsuccess=()=>resolve(r.result);r.onerror=()=>reject(r.error)});
+  const connection=await new Promise((resolve,reject)=>{let settled=false;const timeout=setTimeout(()=>finish(new Error('Local account storage did not open. Close other Ledger tabs and retry.')),15000);const finish=(error,value)=>{if(settled){value?.close();return;}settled=true;clearTimeout(timeout);error?reject(error):resolve(value);};const r=indexedDB.open(database,DB_VERSION);r.onblocked=()=>finish(new Error('Local account storage is blocked by another Ledger tab. Close that tab and retry.'));r.onupgradeneeded=()=>{const d=r.result;for(const [name,key] of [['inventory','slug'],['catalogue','key'],['cardnexus','slug'],['lists','id']])if(!d.objectStoreNames.contains(name))d.createObjectStore(name,{keyPath:key});if(!d.objectStoreNames.contains('meta'))d.createObjectStore('meta');};r.onsuccess=()=>finish(null,r.result);r.onerror=()=>finish(r.error)});
+  connection.onversionchange=()=>connection.close();
   const ctx={user,db:connection,raw:connection.transaction.bind(connection),state:emptyState(),verified:false,online:false,running:false,flight:null};
   await reloadState(ctx);
   connection.transaction=function(names,mode,...rest){
@@ -1802,7 +1805,7 @@ decode = async function(token) {
    delete ctx.state.conflicts[key];delete ctx.state.createIds[key];delete ctx.state.attempts[key];await persist(ctx);return true;
   }finally{if(gated)gate(false);}
  }
- async function metadata(ctx){const data=await request('/ledger/documents');if(data.account_id!==ctx.user.id){ctx.verified=false;const e=new Error('The signed-in account changed. Reopening Ledger…');e.session=true;throw e;}ctx.documents=data.documents;return data.documents;}
+ async function metadata(ctx){const data=await request('/ledger/documents');if(!Array.isArray(data.documents))throw new Error('The account service returned an invalid document list.');if(data.account_id!==ctx.user.id){ctx.verified=false;const e=new Error('The signed-in account changed. Reopening Ledger…');e.session=true;throw e;}ctx.documents=data.documents;return data.documents;}
  async function recoverAttempt(ctx,key,doc){
   const attempt=ctx.state.attempts[key];if(!attempt||attempt.id!==doc?.id||attempt.next!==doc.version)return false;
   const record=(await request('/ledger/documents/'+doc.id)).document;
@@ -1858,7 +1861,7 @@ decode = async function(token) {
    }
   }
  }
- async function locked(ctx,fn){return navigator.locks?navigator.locks.request('ledger-sync:'+ctx.user.id,fn):fn();}
+ async function locked(ctx,fn,options={}){return navigator.locks?navigator.locks.request('ledger-sync:'+ctx.user.id,options,fn):fn();}
  async function cycle(ctx,pullRemote=true){
   if(!ctx?.user||!ctx.verified||!ctx.state.initialized||ctx!==active||switching)return;
   if(ctx.flight)return ctx.flight;
@@ -1902,10 +1905,12 @@ decode = async function(token) {
    await reloadState(ctx);if(ctx.state.initialized)return;
    const docs=await metadata(ctx);
    if(docs.length){let collection=false;for(const doc of docs){if(doc.kind==='collection'&&collection)continue;const key=doc.kind==='collection'?'collection':doc.id;try{await applyRecord(ctx,key,(await request('/ledger/documents/'+doc.id)).document);if(doc.kind==='collection')collection=true;}catch(e){ctx.state.conflicts[key]={id:doc.id,name:doc.name,message:e.message,blocked:true};}}}
-   const [inventory,lists]=await Promise.all([all(anonymous,'inventory'),all(anonymous,'lists')]);
-   if((inventory.length||lists.length)&&await migrationChoice(docs.length>0))await importAnonymous(ctx,anonymous);
-   ctx.state.initialized=true;await scan(ctx);await persist(ctx);
-  });
+   // An empty document list is a valid new account, not a missing save.
+   const [inventory,lists,cardnexus]=await Promise.all([all(anonymous,'inventory'),all(anonymous,'lists'),all(anonymous,'cardnexus')]);
+   if((inventory.length||lists.length||cardnexus.length)&&await migrationChoice(docs.length>0))await importAnonymous(ctx,anonymous);
+   await scan(ctx);ctx.state.initialized=true;
+   try{await persist(ctx)}catch(e){ctx.state.initialized=false;throw e;}
+  },{signal:AbortSignal.timeout(15000)});
  }
  async function switchAccount(user,verified=true){
   const name=user?DB_NAME+'-account-'+user.id:DB_NAME;
@@ -1917,11 +1922,11 @@ decode = async function(token) {
    const ctx=user?await accountContext(user,name):anonymous;
    ctx.user=user;ctx.verified=verified;ctx.online=verified;
    active=ctx;db=ctx.db;activeListId=null;pinnedDeckCard=null;pinnedListCard=null;
-   if(user&&verified)try{await bootstrap(ctx,anonymous)}catch(e){ctx.online=false;text(e.message);}
+   if(user&&verified)try{await bootstrap(ctx,anonymous);$('ledgerStartupError').hidden=true;}catch(e){ctx.online=false;text(e.message);startupError(e);}
    meta=(await getMeta())||{revision:0,baselineRevision:0,lastModified:null,lastExported:null};
    await reloadInventory();await loadLists();refreshStats();updateStatus();applyFilters();
    remember(user);notify(ctx);
-  }finally{switching=false;gate(false);status();}
+  }catch(e){startupError(e);throw e;}finally{switching=false;gate(false);status();}
  }
  async function checkSession(){
   if(sessionCheck)return sessionCheck;
@@ -1932,10 +1937,11 @@ decode = async function(token) {
     if(!user?.id)throw new Error('Invalid account response.');
     await switchAccount(user,true);
     if(active.user&&!active.state.initialized)await bootstrap(active,contexts.get(DB_NAME));
+    $('ledgerStartupError').hidden=true;
     await cycle(active,true);
    }catch(e){
     if(e.status===401)await switchAccount(null);
-    else{if(active?.user){active.verified=false;active.online=false;}text(e.message);status();}
+    else{if(active?.user){active.verified=false;active.online=false;}text(e.message);startupError(e);status();}
    }
   })().finally(()=>{sessionCheck=null});return sessionCheck;
  }
@@ -2048,6 +2054,7 @@ decode = async function(token) {
    await repaint(ctx);$('ledgerSharedDialog').close();notify(ctx);schedule(0,true);
   }catch(e){alert(e.message)}
  }
+ $('ledgerStartupRetry').onclick=async()=>{const button=$('ledgerStartupRetry');button.disabled=true;try{await checkSession()}finally{button.disabled=false;}};
  $('ledgerAccountSaves').onclick=openPanel;$('ledgerAccountClose').onclick=()=>dialog.close();
  $('ledgerCloudTarget').onchange=selectTarget;$('ledgerCloudVisibility').onchange=()=>preferences().catch(e=>text(e.message));$('ledgerCloudName').onchange=()=>preferences().catch(e=>text(e.message));
  $('ledgerCloudCopyLink').onclick=copyLink;$('ledgerSyncRetry').onclick=async()=>{await checkSession();await openPanel()};
