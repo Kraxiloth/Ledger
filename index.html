@@ -1467,7 +1467,7 @@ document.querySelectorAll('.viewtab').forEach(b=>b.onclick=()=>{document.querySe
       location.hash.slice(1)
     ).get('deck');
 
-    if (!token) return;
+    if (!token || /^[A-Za-z0-9_-]{22}$/.test(token) || /^[a-f0-9-]{36}$/i.test(token)) return;
 
     try {
       await importOrSelect(await decode(token));
@@ -1969,13 +1969,26 @@ decode = async function(token) {
   const name=$('ledgerCloudName').value.trim();if(key==='collection'&&!name){text('Give your collection a name.');return;}
   await locked(ctx,async()=>{await reloadState(ctx);ctx.state.prefs[key]={name:key==='collection'?name:ledgerLists.find(l=>l.id===key)?.name,visibility:$('ledgerCloudVisibility').value};await persist(ctx);});selectTarget();schedule(0,true);
  }
+ function compactId(id){
+  if(!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(id))throw new Error('Invalid record ID.');
+  return btoa(String.fromCharCode(...id.replace(/-/g,'').match(/../g).map(v=>parseInt(v,16)))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+ }
+ function expandId(token){
+  if(/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(token))return token.toLowerCase();
+  if(!/^[A-Za-z0-9_-]{22}$/.test(token))throw new Error('Invalid shared record ID.');
+  const bytes=atob(token.replace(/-/g,'+').replace(/_/g,'/')+'==');
+  const hex=Array.from(bytes,c=>c.charCodeAt(0).toString(16).padStart(2,'0')).join('');
+  const id=hex.slice(0,8)+'-'+hex.slice(8,12)+'-'+hex.slice(12,16)+'-'+hex.slice(16,20)+'-'+hex.slice(20);
+  if(compactId(id)!==token)throw new Error('Invalid shared record ID.');return id;
+ }
  async function copyLink(){
   const ctx=active,key=$('ledgerCloudTarget').value;await cycle(ctx,true);
   if(ctx!==active)return;const link=ctx.state.links[key];
   if(ctx.state.conflicts[key]){text('Resolve the save conflict before sharing.');return;}
   if(!link?.id||ctx.state.pending.includes(key)||!ctx.online){text('Reconnect and wait for this record to finish saving before sharing.');return;}
   if(link.visibility==='private'){text('Choose Unlisted or Public before sharing.');return;}
-  const url=location.origin+location.pathname+'#cloud='+link.id;const field=$('ledgerCloudShareURL');field.value=url;field.hidden=false;
+  const kind=key==='collection'?'collection':ledgerLists.find(l=>l.id===key)?.kind;if(!['deck','list','collection'].includes(kind)){text('Record unavailable.');return;}
+  const url=location.origin+location.pathname+'#'+kind+'='+compactId(link.id);const field=$('ledgerCloudShareURL');field.value=url;field.hidden=false;
   try{await navigator.clipboard.writeText(url);text('Share link copied. Future saved updates use the same link.');}catch{field.focus();field.select();text('Select and copy the link.');}
  }
  function renderConflicts(){
@@ -2019,8 +2032,9 @@ decode = async function(token) {
  }
  async function openPanel(){if(!ready||!active?.user)return;if(!dialog.open)dialog.showModal();fillTargets();status();await extraCollections();}
  async function openShared(){
-  if(!ready)return;const match=location.hash.match(/^#cloud=([a-f0-9-]{36})$/i);if(!match)return;
-  try{shared=(await request('/ledger/documents/'+match[1])).document;validate(shared);$('ledgerSharedTitle').textContent=shared.name;$('ledgerSharedDetails').textContent=shared.kind+' · '+shared.visibility+'. Add a copy to edit it in your own Ledger.';$('ledgerSharedDialog').showModal();}catch(e){if(active?.user)text(e.message);alert('Could not open shared record: '+e.message)}
+  if(!ready)return;const match=location.hash.match(/^#(cloud|deck|list|collection)=([A-Za-z0-9_-]+)$/);if(!match)return;
+  if(match[1]==='deck'&&match[2].length!==22&&match[2].length!==36)return;
+  try{shared=(await request('/ledger/documents/'+expandId(match[2]))).document;validate(shared);if(match[1]!=='cloud'&&shared.kind!==match[1])throw new Error('This link does not identify a '+match[1]+'.');$('ledgerSharedTitle').textContent=shared.name;$('ledgerSharedDetails').textContent=shared.kind+' · '+shared.visibility+'. Add a copy to edit it in your own Ledger.';$('ledgerSharedDialog').showModal();}catch(e){if(active?.user)text(e.message);alert('Could not open shared record: '+e.message)}
  }
  async function importShared(){
   if(!shared)return;const ctx=active,record=shared;validate(record);
