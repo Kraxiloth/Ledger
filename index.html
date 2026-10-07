@@ -186,6 +186,7 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
 .deckviewbar{display:flex;margin-bottom:12px}.entryzone{font-size:10px;color:var(--sorcery-text-muted);white-space:nowrap}.deckrows.ungrouped{display:block}
 @container(min-width:1000px){.deckrows.ungrouped{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:700px){.entryzone{font-size:9px}}
+.ledgerfooter{max-width:2520px;margin:24px auto 0;padding:22px;border-top:1px solid var(--sorcery-border);text-align:center;color:var(--sorcery-text-muted);font-size:13px}.ledgerfooter nav{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:8px}.ledgerfooter a{color:var(--sorcery-text-accent);text-decoration:none}.ledgerfooter a:hover{text-decoration:underline}.ledgerfooter a:focus-visible{outline:2px solid var(--sorcery-accent);outline-offset:4px}.ledgerfooter p{margin:12px 0 0;line-height:1.6}
 </style>
 </head>
 <body>
@@ -260,6 +261,15 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
   <section class="listworkspace" id="listWorkspace"><div class="emptyworkspace">Create a list or deck to get started.</div></section>
  </div>
 </main>
+<footer class="ledgerfooter">
+ <nav aria-label="Site links">
+  <a href="https://sorcery.no">Sorcery.no</a><span aria-hidden="true">·</span>
+  <a href="https://sorcery.no/terms/">Terms of Service</a><span aria-hidden="true">·</span>
+  <a href="https://sorcery.no/privacy/">Privacy Policy</a><span aria-hidden="true">·</span>
+  <a href="https://sorcery.no/contact/">Contact</a>
+ </nav>
+ <p>Sorcery.no is an independent community project. Not affiliated in any way with Erik's Curiosa.</p>
+</footer>
 <div class="modalback" id="createListModal">
  <div class="modal" style="width:min(520px,100%)">
   <h2 id="createListHeading">Create list</h2>
