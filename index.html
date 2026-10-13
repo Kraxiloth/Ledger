@@ -306,7 +306,8 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
   <div id="curiosaReportActions" hidden><button type="button" id="curiosaCopyReport">Copy missing-card report</button> <a href="https://sorcery.no/contact" target="_blank" rel="noopener noreferrer">Report missing cards</a><p>Send the report through our contact form. Include a card image or reference link if available. Missing cards are reviewed and added manually.</p></div>
   <div class="modalactions">
    <button id="curiosaCancel">Cancel</button>
-   <button id="curiosaConfirm">Replace inventory with this import</button>
+   <button id="curiosaAdd">Add to collection</button>
+   <button id="curiosaConfirm">Replace collection</button>
   </div>
  </div>
 </div>
@@ -1040,42 +1041,56 @@ function previewCollectionCSV(rows){
  $('ciRows').textContent=rows.length;$('ciCards').textContent=physical;$('ciMatched').textContent=matched.length;$('ciProblems').textContent=problems.length;
  const matchedPhysical=matched.reduce((n,m)=>n+(Number.parseInt(m.row[qtyKey],10)||0),0),skippedPhysical=physical-matchedPhysical;
  const label=format==='cardnexus'?'CardNexus':'collection';
- $('curiosaSummary').textContent=problems.length?`${label} CSV detected. ${matchedPhysical.toLocaleString()} cards across ${matched.length.toLocaleString()} entries are ready to import. ${skippedPhysical.toLocaleString()} cards across ${problems.length.toLocaleString()} entries will be skipped. Importing will replace the current inventory with matched cards only. Nothing has been changed yet.`:`${label} CSV detected. Every row resolved to one exact catalogue printing. Importing will replace the current inventory.`;
+ $('curiosaSummary').textContent=problems.length?`${label} CSV detected. ${matchedPhysical.toLocaleString()} cards across ${matched.length.toLocaleString()} entries are ready to import. ${skippedPhysical.toLocaleString()} cards across ${problems.length.toLocaleString()} entries will be skipped. Choose Add to collection to increase existing quantities, or Replace collection to start with matched cards only. Nothing has been changed yet.`:`${label} CSV detected. Every row resolved to one exact catalogue printing. Choose Add to collection to increase existing quantities, or Replace collection to start with this file only.`;
  $('curiosaIssues').textContent=problems.length?problems.map(p=>`${p.row[qtyKey]} × ${p.row.name||p.row['Card Name']} (${p.row.expansion||p.row['Set Name']} / ${p.row.finish||p.row['Finish']} / ${p.row.variant||p.row['Product']}): ${p.reason}`).join('\n'):'No problems found.';
  $('curiosaReportActions').hidden=problems.length===0;
- $('curiosaConfirm').textContent=problems.length?'Import matched cards (replace inventory)':'Replace inventory with this import';
+ $('curiosaConfirm').textContent='Replace collection';
+ $('curiosaAdd').disabled=matched.length===0;
  $('curiosaConfirm').disabled=matched.length===0;$('curiosaModal').classList.add('open');
 }
-async function replaceInventoryFromCuriosa(){
- if(!pendingCuriosaImport||!pendingCuriosaImport.matched.length)return;
- const skipped=pendingCuriosaImport.problems,qtyKey=pendingCuriosaImport.format==='cardnexus'?'totalQtyOwned':'Quantity';
+let csvImportBusy=false;
+async function importInventoryFromCSV(mode){
+ if(csvImportBusy||!pendingCuriosaImport||!pendingCuriosaImport.matched.length)return;
+ if(!['add','replace'].includes(mode))return;
+ const pending=pendingCuriosaImport,skipped=pending.problems;
+ const qtyKey=pending.format==='cardnexus'?'totalQtyOwned':'Quantity';
+ if(mode==='replace'&&!confirm('Replace your entire collection with the matched cards from this CSV? Existing quantities will be removed, including cards not in this file. Unmatched entries will be skipped. This cannot be undone from this dialog.'))return;
+ csvImportBusy=true;$('curiosaAdd').disabled=true;$('curiosaConfirm').disabled=true;
+ try{
  const skippedReport=skipped.map(p=>`${p.row[qtyKey]} × ${p.row.name||p.row['Card Name']} (${p.row.expansion||p.row['Set Name']} / ${p.row.finish||p.row['Finish']} / ${p.row.variant||p.row['Product']}): ${p.reason}`).join('\n');
- const stores=pendingCuriosaImport.format==='cardnexus'?['inventory','meta','cardnexus']:['inventory','meta'];
- const tx=db.transaction(stores,'readwrite'),inventory=tx.objectStore('inventory');inventory.clear();
- if(pendingCuriosaImport.format==='cardnexus')tx.objectStore('cardnexus').clear();
- for(const m of pendingCuriosaImport.matched){
-  const qkey=pendingCuriosaImport.format==='cardnexus'?'totalQtyOwned':'Quantity';
-  const quantity=Math.max(0,Number.parseInt(m.row[qkey],10)||0);if(quantity)inventory.put({slug:m.variant.slug,quantity});
-  if(pendingCuriosaImport.format==='cardnexus')tx.objectStore('cardnexus').put({slug:m.variant.slug,row:m.row});
+ const quantities=new Map();
+ for(const m of pending.matched){const q=Math.max(0,Number.parseInt(m.row[qtyKey],10)||0);quantities.set(m.variant.slug,(quantities.get(m.variant.slug)||0)+q)}
+ const stores=pending.format==='cardnexus'?['inventory','meta','cardnexus']:['inventory','meta'];
+ const tx=db.transaction(stores,'readwrite'),inventory=tx.objectStore('inventory');
+ if(mode==='replace'){inventory.clear();if(pending.format==='cardnexus')tx.objectStore('cardnexus').clear()}
+ for(const [slug,quantity] of quantities){
+  if(!quantity)continue;
+  if(mode==='add'){const read=inventory.get(slug);read.onsuccess=()=>inventory.put({slug,quantity:(read.result?.quantity||0)+quantity})}
+  else inventory.put({slug,quantity});
  }
+ if(pending.format==='cardnexus')for(const m of pending.matched)tx.objectStore('cardnexus').put({slug:m.variant.slug,row:m.row});
  const now=new Date().toISOString(),nextRevision=(meta.revision||0)+1;
- meta={...meta,revision:nextRevision,baselineRevision:nextRevision,lastModified:now,lastImported:now,baselineSource:pendingCuriosaImport.format};
- putLedgerMeta(tx.objectStore('meta'),'state',meta);
+ const nextMeta={...meta,revision:nextRevision,lastModified:now,lastImported:now};
+ if(mode==='replace')Object.assign(nextMeta,{baselineRevision:nextRevision,baselineSource:pending.format});
+ putLedgerMeta(tx.objectStore('meta'),'state',nextMeta);
  await new Promise((res,rej)=>{tx.oncomplete=res;tx.onerror=()=>rej(tx.error);tx.onabort=()=>rej(tx.error)});
+ meta=nextMeta;
  await reloadInventory();refreshStats();updateStatus();applyFilters();$('curiosaModal').classList.remove('open');pendingCuriosaImport=null;
  if(skipped.length)alert(`Import completed. ${skipped.length} entries were skipped:\n\n${skippedReport}`);
+ }catch(err){alert('Could not import collection CSV: '+err.message)}
+ finally{csvImportBusy=false;$('curiosaAdd').disabled=!pendingCuriosaImport?.matched.length;$('curiosaConfirm').disabled=!pendingCuriosaImport?.matched.length}
 }
 $('curiosaBtn').onclick=()=>{$('curiosaFile').value='';$('curiosaFile').click();$('importMenu')?.removeAttribute('open')};
 $('curiosaFile').onchange=async e=>{const f=e.target.files?.[0];if(!f)return;try{previewCollectionCSV(parseCSV(await f.text()))}catch(err){alert('Could not import collection CSV: '+err.message)}};
-$('curiosaConfirm').onclick=replaceInventoryFromCuriosa;
+$('curiosaConfirm').onclick=()=>importInventoryFromCSV('replace');
 $('curiosaCopyReport').onclick=async()=>{
  const pending=pendingCuriosaImport;if(!pending)return;
  const q=pending.format==='cardnexus'?'totalQtyOwned':'Quantity';
  const report=['Ledger missing-card report',...pending.problems.map(p=>`${p.row[q]} × ${p.row.name||p.row['Card Name']} | Set: ${p.row.expansion||p.row['Set Name']} | Finish: ${p.row.finish||p.row['Finish']} | Variant: ${p.row.variant||p.row['Product']} | CardNexus ID: ${p.row.productId||'none'} | TCGplayer ID: ${p.row.tcgplayerId||'none'} | Reason: ${p.reason}`)].join('\n');
  try{await navigator.clipboard.writeText(report);$('curiosaCopyReport').textContent='Report copied';setTimeout(()=>{$('curiosaCopyReport').textContent='Copy missing-card report'},2000)}catch{prompt('Copy this report and send it through https://sorcery.no/contact',report)}
 };
-$('curiosaCancel').onclick=()=>{$('curiosaModal').classList.remove('open');pendingCuriosaImport=null};
-$('curiosaConfirm').onclick=replaceInventoryFromCuriosa;
+$('curiosaCancel').onclick=()=>{if(csvImportBusy)return;$('curiosaModal').classList.remove('open');pendingCuriosaImport=null};
+$('curiosaAdd').onclick=()=>importInventoryFromCSV('add');
 
 
 
