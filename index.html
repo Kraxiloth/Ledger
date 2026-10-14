@@ -238,6 +238,7 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
  </div>
 </div></header>
 <div id="catalogueLoadProgress" class="catalogueStatus" role="status" aria-live="polite" style="padding:8px 20px">Loading card catalogue...</div>
+<div id="ledgerViewStatus" role="status" aria-live="polite" style="max-width:2520px;margin:6px auto;min-height:18px;padding:0 22px;font-size:12px;color:var(--sorcery-text-muted)"></div>
 <main id="inventoryView" class="appview">
 
 
@@ -1234,7 +1235,8 @@ function cardById(id){return cards.find(c=>c.id===id)}
 function ownedCanonical(c){return c?c.variants.reduce((n,v)=>n+(inv.get(v.slug)||0),0):0}
 function listTotal(l){return (l.entries||[]).reduce((n,e)=>n+((l.kind==='deck'&&['maybeboard'].includes(e.zone))?0:(Number(e.quantity)||0)),0)}
 function deckZoneLabel(z){return ({avatar:'Avatar',spellbook:'Spellbook',atlas:'Atlas',collection:'Collection',maybeboard:'Maybeboard'})[z]||'List'}
-async function loadLists(){ledgerLists=await getAll('lists');ledgerLists.sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));if(activeListId&&!ledgerLists.some(x=>x.id===activeListId))activeListId=null;renderListNav();renderListWorkspace()}
+let listsLoadRun=0;
+async function loadLists(){const run=++listsLoadRun,source=db,loaded=await getAll('lists');if(run!==listsLoadRun||source!==db)return;ledgerLists=loaded;ledgerLists.sort((a,b)=>(b.updatedAt||'').localeCompare(a.updatedAt||''));if(activeListId&&!ledgerLists.some(x=>x.id===activeListId))activeListId=null;renderListNav();renderListWorkspace()}
 async function saveList(l){l.updatedAt=new Date().toISOString();await putOne('lists',l);await loadLists();activeListId=l.id;renderListNav();renderListWorkspace()}
 function deleteListRecord(id){return new Promise((res,rej)=>{const r=store('lists','readwrite').delete(id);r.onsuccess=res;r.onerror=()=>rej(r.error)})}
 function deckAtlasElements(l){const found=new Set();for(const e of l.entries||[]){if(e.zone!=='atlas'||(Number(e.quantity)||0)<=0)continue;const c=cardById(e.cardId);for(const raw of c?.elements||[]){const element=String(raw).toLowerCase();if(element==='air')found.add('Air');else if(element==='earth')found.add('Earth');else if(element==='fire')found.add('Fire');else if(element==='water')found.add('Water')}}return ['Air','Earth','Fire','Water'].filter(e=>found.has(e))}
@@ -1480,9 +1482,36 @@ $('collectionGoalSearch').oninput=()=>{collectionGoalLimit=60;renderCollections(
 $('collectionGoalMore').onclick=()=>{collectionGoalLimit+=60;renderCollections()};
  document.querySelectorAll('[data-goal-filter]').forEach(b=>b.onclick=()=>{collectionGoalFilter=b.dataset.goalFilter;collectionGoalLimit=60;renderCollections()});
 // Hide the Inventory-only header filters while viewing goal controls.
-new MutationObserver(()=>{const active=!$('collectionsView').hidden;document.body.classList.toggle('collections-active',active);if(active)renderCollections()}).observe($('collectionsView'),{attributes:true,attributeFilter:['hidden']});
+new MutationObserver(()=>{const active=!$('collectionsView').hidden;document.body.classList.toggle('collections-active',active);}).observe($('collectionsView'),{attributes:true,attributeFilter:['hidden']});
 
-document.querySelectorAll('.viewtab').forEach(b=>b.onclick=()=>{document.querySelectorAll('.viewtab').forEach(x=>x.classList.toggle('active',x===b));document.querySelectorAll('.appview').forEach(v=>v.hidden=v.id!==b.dataset.view);if(b.dataset.view==='listsView')loadLists();hidePfHover();if(b.dataset.view==='portfolioView')loadPortfolio()});
+let ledgerViewSwitchBusy=false,ledgerFailedView=null;
+async function switchLedgerView(button){
+ if(ledgerViewSwitchBusy)return;
+ const target=$(button.dataset.view);if(!target||(!target.hidden&&ledgerFailedView!==button.dataset.view))return;
+ const tabs=[...document.querySelectorAll('.viewtab')],status=$('ledgerViewStatus');
+ ledgerViewSwitchBusy=true;tabs.forEach(b=>b.disabled=true);
+ status.textContent=`Loading ${button.textContent.trim()}…`;
+ let timeout=null;
+ try{
+  // Cancel price/history work before hiding the Portfolio DOM.
+  if(button.dataset.view!=='portfolioView'){pfRun++;pfAbort?.abort();pfAbort=null;hidePfHover()}
+  if(button.dataset.view!=='listsView')sampleHandResizeObserver?.disconnect();
+  document.querySelectorAll('.appview').forEach(v=>{const hidden=v!==target;if(v.hidden!==hidden)v.hidden=hidden});
+  tabs.forEach(b=>{b.classList.toggle('active',b===button);b.setAttribute('aria-selected',String(b===button))});
+  document.body.classList.toggle('collections-active',button.dataset.view==='collectionsView');
+  target.setAttribute('aria-busy','true');
+  await new Promise(resolve=>requestAnimationFrame(resolve));
+  const load=async()=>{if(button.dataset.view==='listsView')await loadLists();else if(button.dataset.view==='portfolioView')await loadPortfolio();else if(button.dataset.view==='collectionsView')renderCollections()};
+  await Promise.race([load(),new Promise((_,reject)=>{timeout=setTimeout(()=>reject(new Error('Loading took too long. Please try this view again.')),30000)})]);
+  ledgerFailedView=null;status.textContent='';
+ }catch(error){
+  if(button.dataset.view==='portfolioView'){pfRun++;pfAbort?.abort();pfAbort=null}
+  if(button.dataset.view==='listsView')listsLoadRun++;
+  ledgerFailedView=button.dataset.view;status.textContent=`Could not finish loading ${button.textContent.trim()}: ${error.message} Click its tab to retry.`;
+  console.error('Ledger view loading failed',button.dataset.view,error);
+ }finally{clearTimeout(timeout);target.removeAttribute('aria-busy');ledgerViewSwitchBusy=false;tabs.forEach(b=>b.disabled=false)}
+}
+document.querySelectorAll('.viewtab').forEach(b=>b.onclick=()=>switchLedgerView(b));
 
 (async()=>{try{
  initQuickCollapse();
