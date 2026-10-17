@@ -206,6 +206,7 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
 .tablestack .tablesiteframe img{position:absolute;left:50%;top:50%;width:71.6073%;height:139.6505%;max-width:none;transform:translate(-50%,-50%) rotate(90deg);object-fit:contain}
 #deckTableInspect.table-site .tableinspectframe{display:block;position:relative;width:min(88vw,112vh);aspect-ratio:1039/744;overflow:hidden;border-radius:12px}
 #deckTableInspect.table-site img{position:absolute;left:50%;top:50%;width:71.6073%;height:139.6505%;max-width:none;max-height:none;transform:translate(-50%,-50%) rotate(90deg);object-fit:contain}
+.tableviewcontrols{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:16px 0}.tableviewcontrols label{margin-left:auto}.tableviewcontrols select{max-width:100%}.tableviewcontrols button[aria-pressed=true]{background:var(--sorcery-surface-active);color:var(--sorcery-text-accent);border-color:var(--sorcery-accent)}.tablezone h4{font-size:13px;color:var(--sorcery-text-muted);margin:12px 0}@media(max-width:500px){.tableviewcontrols label{margin-left:0;width:100%}}
 </style>
 </head>
 <body>
@@ -1308,14 +1309,33 @@ function deckTableGroups(l){
  }
  return [...groups.values()];
 }
-function renderDeckTable(host,l){
- const groups=deckTableGroups(l),zones=[['avatar','Avatar'],['spellbook','Spellbook'],['atlas','Atlas'],['collection','Collection'],['maybeboard','Maybeboard']];
- for(const g of groups)if(!zones.some(([z])=>z===g.zone))zones.push([g.zone,g.zone==='maybeboard'?'Maybeboard':g.zone]);
- host.innerHTML=`${l.description?`<p>${esc(l.description)}</p>`:''}<div class="deckoverview">${validationHTML(l)}${deckValueHTML(l)}</div>`;
+function deckTableSections(groups,grouped,sort){
+ const zones=[['avatar','Avatar'],['spellbook','Spellbook'],['atlas','Atlas'],['collection','Collection'],['maybeboard','Maybeboard']];
+ for(const g of groups)if(!zones.some(([z])=>z===g.zone))zones.push([g.zone,g.zone]);
+ const sortGroups=items=>sortedEntries(items.map(g=>({...g,cardId:g.c.id})),sort,false);
+ const sections=[];
  for(const [zone,label] of zones){
   const entries=groups.filter(g=>g.zone===zone);if(!entries.length)continue;
+  const parts=grouped&&zone==='spellbook'?[['Minion','Minions'],['Magic','Magics'],['Artifact','Artifacts'],['Aura','Auras'],['Other','Other']]:[[null,null]];
+  for(const [type,minor] of parts){const items=type?entries.filter(g=>type==='Other'?!['Minion','Magic','Artifact','Aura'].includes(g.c.type):g.c.type===type):entries;if(items.length)sections.push({zone,label,minor,entries:sortGroups(items),total:entries.reduce((n,g)=>n+g.quantity,0)});}
+ }
+ return sections;
+}
+function renderDeckTable(host,l){
+ const groups=deckTableGroups(l);
+ if(!host.deckTableOptions||host.deckTableRecord!==l){host.deckTableOptions={grouped:true,sort:DECK_SORT_MODES.has(l.sortMode)?l.sortMode:'alpha-asc'};host.deckTableRecord=l;}
+ const options=host.deckTableOptions;
+ host.innerHTML=`${l.description?`<p>${esc(l.description)}</p>`:''}<div class="deckoverview">${validationHTML(l)}${deckValueHTML(l)}</div>`;
+ const controls=document.createElement('div');controls.className='tableviewcontrols';
+ for(const [grouped,label] of [[true,'Grouped'],[false,'Ungrouped']]){const button=document.createElement('button');button.type='button';button.textContent=label;button.setAttribute('aria-pressed',String(options.grouped===grouped));button.onclick=()=>{options.grouped=grouped;renderDeckTable(host,l)};controls.appendChild(button);}
+ const label=document.createElement('label');label.textContent='Sort cards ';const select=document.createElement('select');select.setAttribute('aria-label','Sort preview cards');
+ for(const [value,text] of [['alpha-asc','Alphabetical (A-Z)'],['alpha-desc','Alphabetical (Z-A)'],['mana-asc','Mana cost (low-high)'],['mana-desc','Mana cost (high-low)'],['threshold-asc','Threshold (low-high)'],['threshold-desc','Threshold (high-low)'],['rarity-asc','Rarity (Ordinary to Unique)'],['rarity-desc','Rarity (Unique to Ordinary)']])select.add(new Option(text,value));
+ select.value=options.sort;select.onchange=()=>{options.sort=select.value;renderDeckTable(host,l)};label.appendChild(select);controls.appendChild(label);host.appendChild(controls);
+ let previousZone=null;
+ for(const {zone,label,minor,entries,total} of deckTableSections(groups,options.grouped,options.sort)){
   const section=document.createElement('section');section.className='tablezone';
-  const heading=document.createElement('h3');heading.textContent=label+' ('+entries.reduce((n,g)=>n+g.quantity,0)+')';section.appendChild(heading);
+  if(previousZone!==zone){const heading=document.createElement('h3');heading.textContent=label+' ('+total+')';section.appendChild(heading);previousZone=zone;}
+  if(minor){const heading=document.createElement('h4');heading.textContent=minor+' ('+entries.reduce((n,g)=>n+g.quantity,0)+')';section.appendChild(heading);}
   const grid=document.createElement('div');grid.className='tablecards';section.appendChild(grid);
   for(const g of entries){
    const figure=document.createElement('figure');figure.className='tablestack';const isSite=g.c.type==='Site';figure.classList.toggle('table-site',isSite);
