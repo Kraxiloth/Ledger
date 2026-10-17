@@ -794,7 +794,8 @@ function elementPass(c){
  if([...labels].some(x=>exc.includes(x)))return false;
  return true;
 }
-function applyFilters(){
+function applyFilters({preservePosition=false}={}){
+ const previousRendered=rendered,scrollX=window.scrollX,scrollY=window.scrollY;
  const terms=searchTerms($('search').value),sf=$('setFilter').value,rf=$('rarityFilter').value,ff=$('finishFilter').value;
  const ownership=$('ownershipFilter').value,sort=$('sortBy').value;
  filtered=cards.filter(c=>{
@@ -814,7 +815,8 @@ function applyFilters(){
   if(sort==='threshold-desc')return cardThreshold(b)-cardThreshold(a)||a.name.localeCompare(b.name);
   return a.name.localeCompare(b.name);
  });
- $('visibleCount').textContent=filtered.length;rendered=0;$('grid').innerHTML='';renderMore();
+ $('visibleCount').textContent=filtered.length;rendered=0;$('grid').innerHTML='';renderMore(preservePosition?Math.max(36,previousRendered):36);
+ if(preservePosition)window.scrollTo(scrollX,scrollY);
 }
 
 function openInspector(card,variant){
@@ -833,8 +835,8 @@ $('inspectImg').onclick=closeInspector;
 $('inspectBack').onclick=e=>{if(e.target===$('inspectBack'))closeInspector()};
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('inspectBack').classList.contains('open'))closeInspector()});
 
-function renderMore(){
- const batch=filtered.slice(rendered,rendered+36),frag=document.createDocumentFragment();
+function renderMore(batchSize=36){
+ const batch=filtered.slice(rendered,rendered+batchSize),frag=document.createDocumentFragment();
  if(!filtered.length){$('grid').innerHTML='<div class="empty">No cards match these filters.</div>';return}
  for(const c of batch){
   let selected=preferredVariant(c), total=c.variants.reduce((n,v)=>n+(inv.get(v.slug)||0),0);
@@ -2074,7 +2076,22 @@ decode = async function(token) {
   tx.oncomplete=()=>resolve(true);tx.onerror=()=>reject(tx.error);tx.onabort=()=>stale?resolve(false):reject(tx.error||new Error('Local write failed.'));
  })} 
  function notify(ctx){channel?.postMessage({account:ctx.user?.id||null});}
- async function repaint(ctx){if(active!==ctx||switching)return;meta=(await getMeta())||{revision:0,baselineRevision:0,lastModified:null,lastExported:null};await reloadInventory();await loadLists();refreshStats();updateStatus();applyFilters();fillTargets();}
+ // Deck/list notifications share the account channel with ownership changes.
+ // Compare quantities before rebuilding Inventory so unrelated saves leave its DOM intact.
+ async function repaint(ctx){
+  if(active!==ctx||switching)return;
+  meta=(await getMeta())||{revision:0,baselineRevision:0,lastModified:null,lastExported:null};
+  if(active!==ctx||switching)return;
+  const rows=await all(ctx,'inventory');
+  if(active!==ctx||switching)return;
+  const nextInventory=new Map(rows.map(x=>[x.slug,x.quantity]));
+  const inventoryChanged=inv.size!==nextInventory.size||[...nextInventory].some(([slug,quantity])=>inv.get(slug)!==quantity);
+  inv=nextInventory;
+  await loadLists();
+  if(active!==ctx||switching)return;
+  if(inventoryChanged){refreshStats();applyFilters({preservePosition:true});}
+  updateStatus();fillTargets();
+ }
  function status(ctx=active){
   const signed=!!ctx?.user;$('ledgerAccountLogin').hidden=signed;$('ledgerAccountSaves').hidden=!signed;
   $('ledgerAccountName').textContent=signed?(ctx.user.display_name||'Sorcery.no account'):'';
