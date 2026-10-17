@@ -2508,6 +2508,19 @@ decode = async function(token) {
  $('ledgerAccountSaves').onclick=openPanel;$('ledgerAccountClose').onclick=()=>dialog.close();
  $('ledgerCloudTarget').onchange=selectTarget;$('ledgerCloudVisibility').onchange=()=>preferences().catch(e=>text(e.message));$('ledgerCloudName').onchange=()=>preferences().catch(e=>text(e.message));
  $('ledgerCloudCopyLink').onclick=copyLink;$('ledgerSyncRetry').onclick=async()=>{await checkSession();await openPanel()};
+ // Native dialog backdrop events target the dialog; check its bounds so
+ // clicks on padding and drags starting inside the preview do not dismiss it.
+ function closeOnBackdrop(modal,onClose){
+  let startedOutside=false;
+  const outside=event=>{const r=modal.getBoundingClientRect();return event.target===modal&&(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)};
+  modal.addEventListener('pointerdown',event=>{startedOutside=outside(event)});
+  modal.addEventListener('pointercancel',()=>{startedOutside=false});
+  modal.addEventListener('click',event=>{if(startedOutside&&outside(event)){modal.close();onClose?.();}startedOutside=false;});
+  modal.addEventListener('close',()=>{startedOutside=false});
+ }
+ closeOnBackdrop($('deckTableDialog'));
+ closeOnBackdrop($('deckTableInspect'));
+ closeOnBackdrop($('ledgerSharedDialog'),()=>{shared=null});
  $('ledgerSharedClose').onclick=()=>{$('ledgerSharedDialog').close();shared=null};$('ledgerSharedImport').onclick=importShared;
  window.addEventListener('online',()=>{if(ready)checkSession()});window.addEventListener('focus',()=>{if(ready)checkSession()});
  window.addEventListener('hashchange',openShared);
