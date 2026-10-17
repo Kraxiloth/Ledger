@@ -201,6 +201,11 @@ main{padding-top:20px}.notice{background:var(--sorcery-warning-surface);border:1
 .decktablemodal{width:min(1500px,96vw);max-width:96vw;max-height:92vh;overflow:auto;padding:20px;border:1px solid var(--sorcery-border);border-radius:12px;background:var(--sorcery-bg,var(--sorcery-surface));color:var(--sorcery-text)}
 .decktablemodal::backdrop,#deckTableInspect::backdrop{background:rgba(0,0,0,.8)}
 .tableactions{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:12px 0 20px}.tableactions button{background:#2367b5;color:white}.tablezone{margin:24px 0}.tablezone h3{font-size:14px;color:var(--sorcery-text-muted)}.tablecards{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:18px 12px;align-items:start}.tablestack{margin:0;min-width:0}.tablestack button{display:block;width:100%;padding:0;border:0;background:transparent;position:relative;border-radius:9px;overflow:hidden;aspect-ratio:744/1039}.tablestack img{width:100%;height:100%;object-fit:contain;display:block}.tablestack .tablebehind{position:absolute;inset:0}.tablecopies{position:absolute;bottom:5px;right:5px;background:#10151ee8;color:white;border-radius:5px;padding:3px 7px;font-weight:bold}.tablestack figcaption{font-size:12px;line-height:1.4;margin-top:6px;text-align:center}.tableprinting{display:block;color:var(--sorcery-text-muted);font-size:11px}#deckTableInspect{padding:0;border:0;background:transparent;max-width:94vw;max-height:95vh}#deckTableInspect button{display:block;padding:0;border:0;background:transparent}#deckTableInspect img{display:block;max-height:90vh;max-width:90vw;width:auto}.tableclosehint{display:block;color:white;text-align:center;padding:6px}@media(max-width:500px){.tablecards{grid-template-columns:repeat(2,minmax(0,1fr))}.decktablemodal{padding:12px}}
+
+.tablesiteframe{display:block;position:relative;aspect-ratio:1039/744;overflow:hidden;border-radius:8px}
+.tablestack .tablesiteframe img{position:absolute;left:50%;top:50%;width:71.6073%;height:139.6505%;max-width:none;transform:translate(-50%,-50%) rotate(90deg);object-fit:contain}
+#deckTableInspect.table-site .tableinspectframe{display:block;position:relative;width:min(88vw,112vh);aspect-ratio:1039/744;overflow:hidden;border-radius:12px}
+#deckTableInspect.table-site img{position:absolute;left:50%;top:50%;width:71.6073%;height:139.6505%;max-width:none;max-height:none;transform:translate(-50%,-50%) rotate(90deg);object-fit:contain}
 </style>
 </head>
 <body>
@@ -1313,7 +1318,7 @@ function renderDeckTable(host,l){
   const heading=document.createElement('h3');heading.textContent=label+' ('+entries.reduce((n,g)=>n+g.quantity,0)+')';section.appendChild(heading);
   const grid=document.createElement('div');grid.className='tablecards';section.appendChild(grid);
   for(const g of entries){
-   const figure=document.createElement('figure');figure.className='tablestack';
+   const figure=document.createElement('figure');figure.className='tablestack';const isSite=g.c.type==='Site';figure.classList.toggle('table-site',isSite);
    const button=document.createElement('button');button.type='button';button.setAttribute('aria-label',g.c.name+', '+g.quantity+' copies. Inspect card');
    // Exposed title strips evoke a tabletop stack; one image node per visible copy.
    const visible=Math.min(g.quantity,4),offset=(visible-1)*18;
@@ -1322,10 +1327,14 @@ function renderDeckTable(host,l){
     const img=document.createElement('img');img.alt=i===visible-1?g.c.name:'';img.loading='lazy';setCardImage(img,g.v.slug);
     if(i<visible-1){img.className='tablebehind';img.style.top=(i*18)+'px';img.style.height='auto';}
     else{img.style.position='relative';img.style.height='auto';}
-    button.appendChild(img);
+    if(isSite){
+     const frame=document.createElement('span');frame.className='tablesiteframe';
+     if(i<visible-1){frame.style.position='absolute';frame.style.top=(i*18)+'px';frame.style.left='0';frame.style.width='100%';}
+     img.className='';img.removeAttribute('style');frame.appendChild(img);button.appendChild(frame);
+    }else button.appendChild(img);
    }
    const badge=document.createElement('span');badge.className='tablecopies';badge.textContent='×'+g.quantity;button.appendChild(badge);
-   button.onclick=()=>{const image=$('deckTableInspectImage');setCardImage(image,g.v.slug);image.alt=g.c.name;if(!$('deckTableInspect').open)$('deckTableInspect').showModal()};
+   button.onclick=()=>{const image=$('deckTableInspectImage');setCardImage(image,g.v.slug);image.alt=g.c.name;$('deckTableInspect').classList.toggle('table-site',isSite);if(!$('deckTableInspect').open)$('deckTableInspect').showModal()};
    const caption=document.createElement('figcaption');caption.textContent=g.c.name;
    const printing=document.createElement('span');printing.className='tableprinting';printing.textContent=[g.v.set,g.v.finish,g.v.product==='Curio'?'Curio':''].filter(Boolean).join(' · ');caption.appendChild(printing);
    figure.append(button,caption);grid.appendChild(figure);
@@ -2093,7 +2102,7 @@ decode = async function(token) {
  <div class="accountactions"><button id="ledgerMigrationCopy" type="button">Copy browser data to my account</button><button id="ledgerMigrationEmpty" type="button">Start with an empty account</button></div>
 </dialog>
 <dialog id="deckTableDialog" class="decktablemodal" aria-labelledby="deckTableTitle"><div class="accountdialoghead"><h2 id="deckTableTitle"></h2><button type="button" onclick="document.getElementById('deckTableDialog').close()">Close</button></div><p>Click a card to inspect it. This view is read-only.</p><div id="deckTableActions" class="tableactions" hidden></div><div id="deckTableContent"></div></dialog>
-<dialog id="deckTableInspect" aria-label="Card inspector"><button type="button" onclick="document.getElementById('deckTableInspect').close()" aria-label="Close card inspector"><img id="deckTableInspectImage" alt=""><span class="tableclosehint">Click to close</span></button></dialog>
+<dialog id="deckTableInspect" aria-label="Card inspector"><button type="button" onclick="document.getElementById('deckTableInspect').close()" aria-label="Close card inspector"><span class="tableinspectframe"><img id="deckTableInspectImage" alt=""></span><span class="tableclosehint">Click to close</span></button></dialog>
 <dialog id="ledgerSharedDialog" class="accountdialog decktablemodal" aria-labelledby="ledgerSharedTitle">
  <div class="accountdialoghead"><h2 id="ledgerSharedTitle">Shared Ledger record</h2><button id="ledgerSharedClose" type="button">Close</button></div>
  <p id="ledgerSharedDetails"></p><div class="tableactions"><button id="ledgerSharedImport" type="button">Add a private copy to my Ledger</button><span>Optional - browse without saving a copy.</span></div><div id="ledgerSharedTable"></div>
